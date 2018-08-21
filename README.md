@@ -3,7 +3,9 @@
 
 What does this project do?
 
-Rock-paper-scissors is a game where a player can propose a single rock-paper-scissors game with a specified bet/entry fee that the winner of the game will receive as the prize. The game creator locks in their proposal (which can be canceled at any time before the game begins) and waits for an opponent to accept by paying the entry fee. At this stage, the funds are locked in the contract and both players are to commit an encrypted submission (rock, paper, or scissors). When both players have finished committing, both players' submissions are revealed and the winner is awarded the prize. In the event of a tie, players must commit a new submission until there is a winner. The game must conclude with a winner within 5,760 blocks (roughly 24 hours @ a 15sec blocktime) of the game's start, or the game will automatically be cancelled with the entry fee funds returned to both players.
+Rock-paper-scissors is a game where players can be matched up against each other to win their opponent's entry fees. The game creator locks in an encrypted submission (rock, paper, or scissors) and an entry fee, and waits for an opponent to accept by matching the entry fee and submitting their own encrypted move. The game creator can also cancel any of their open games if no opponent has joined. When an opponent joins a created game, both players' entry fees are locked in the contract and both players are to reveal their submissions to determine the winner. A winner must be determined within 5,760 blocks (roughly 24 hours @ a 15sec blocktime) of the game's start, or the game will automatically be cancelled with the entry fee funds returned to both players.
+
+If only one player reveals their submission by the end of the game's time limit (such as the opponent knowing that they lost and refusing to reveal), the revealing player automatically wins regardless of their opponent's unrevealed move. In the event of a double-reveal tie, the game ends and all funds are returned to players.
 
 
 How to set it up

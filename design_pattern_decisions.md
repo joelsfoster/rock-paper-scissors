@@ -2,6 +2,6 @@
 
 - Talk about commit/reveal
 - Contract simplicity and readability
-- Reducing gas costs
+- Reducing gas/storage costs (use Remix to test different storage structures)
 - Emergency stop "circuit breaker"
-- 
+-
