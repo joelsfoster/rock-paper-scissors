@@ -92,15 +92,6 @@ contract RockPaperScissors {
     _;
   }
 
-  // Reusable code to check if the game has been open for too long
-  modifier checkGameExpiration(_gameId) internal {
-    Game storage game = games[_gameId];
-    if (game.gameStartBlock >= game.gameStartBlock + gameBlockTimeLimit) {
-      game.status = Status.Expired;
-      // There is no _; here because if this is called because the game is expired, no further action is taken
-    }
-  }
-
 
   /*
   <-- Functions -->
@@ -119,20 +110,19 @@ contract RockPaperScissors {
   // Players can create a game by submitting their wager, using a password to encrypt their move
   function createGame(_move, _password, _wager) public payable validatePassword(_password) validateWager(_wager) returnExtraPayment(_wager) {
     Move validatedMove = validateMove(_move);
-    if (validatedMove) {
-      games[gameIdCounter] = Game({ // Create a new game
-        gameId: gameIdCounter,
-        wager: _wager,
-        gameStartBlock: null,
-        creator: msg.sender,
-        challenger: null,
-        winner: null,
-        creatorEncryptedMove: sha3(validatedMove, msg.sender, _password), // Encrypted using the user's password
-        challengerEncryptedMove: null,
-        status: Status.Open
-      });
-      gameIdCounter++; // Prep the counter for the next game
-    }
+    require (validatedMove);
+    games[gameIdCounter] = Game({ // Create a new game
+      gameId: gameIdCounter,
+      wager: _wager,
+      gameStartBlock: null,
+      creator: msg.sender,
+      challenger: null,
+      winner: null,
+      creatorEncryptedMove: sha3(validatedMove, msg.sender, _password), // Encrypted using the user's password
+      challengerEncryptedMove: null,
+      status: Status.Open
+    });
+    gameIdCounter++; // Prep the counter for the next game
   }
 
   // Players can cancel their open game and get their wager deposits back
@@ -146,21 +136,16 @@ contract RockPaperScissors {
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
   function joinGame(_gameId, _move, _password) public payable validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
     Game storage game = games[_gameId]; // Too bad Solidity doesn't let you define local variables in function arguments like JavaScript
-    require(game.creator != msg.sender); // You can't challenge yourself!
     Move validatedMove = validateMove(_move);
-    if (validatedMove) {
-      game.status = Status.AwaitingReveals;
-      game.challenger = msg.sender;
-      game.gameStartBlock = block.number;
-      game.challengerEncryptedMove = sha3(validatedMove, msg.sender, _password) // Encrypted using the user's password
-    }
+
+    // You can't challenge yourself, the game must be Open, and the inputted _move must be valid
+    require(game.creator != msg.sender && game.status == Status.Open && validatedMove);
+
+    game.status = Status.AwaitingReveals;
+    game.challenger = msg.sender;
+    game.gameStartBlock = block.number;
+    game.challengerEncryptedMove = sha3(validatedMove, msg.sender, _password) // Encrypted using the user's password
   }
-
-  // Game has begun, and funds are locked for the next 5,760 blocks (roughly 24 hours @ a 15sec blocktime) or unless there is a winner
-  // Include the checkGameExpiration(_gameId) modifier in every function below
-  // OR try using Ethereum Alarm Clock!!!
-  // Write a comment in the design pattern doc about how game expiration works
-
 
   // Allow players to reveal their moves by providing their password and repeating their move
   function revealMove(_gameId, _move, _password) public validatePassword(_password) {
@@ -168,60 +153,66 @@ contract RockPaperScissors {
     Move validatedMove = validateMove(_move);
     require(validatedMove);
 
-    // If the creator reveals
-    if (msg.sender == game.creator) {
+    if (msg.sender == game.creator) { // If the creator reveals
       require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
       game.creatorMove = validatedMove;
       game.status = Status.AwaitingChallengerReveal;
     }
 
-    // // If the challenger reveals
-    else if (msg.sender == game.challenger) {
+    else if (msg.sender == game.challenger) { // If the challenger reveals
       require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
       game.challengerMove = validatedMove;
       game.status = Status.AwaitingCreatorReveal;
     }
 
-    // If both players' moves are revealed, determine the winner
-    if (game.creatorMove && game.challengerMove) {
+    if (game.creatorMove && game.challengerMove) { // If both players' moves are revealed, determine the winner
       determineWinner(_gameId);
     }
   }
 
-
-  // If both player's answers are revealed and there is a winner, pay out to them
+  // If both player's answers are revealed, determine the winner or if it's a tie, and pay out accordingly
   function determineWinner(_gameId) internal {
     Game storage game = games[_gameId];
     uint totalPrizePool = game.wager * 2;
+    require(game.creatorMove && game.challengerMove);
 
-    // If both players reveal and there is a tie, refund both players
-    if (game.creatorMove == game.challengerMove) {
+    if (game.creatorMove == game.challengerMove) { // If both players tie, refund both players
       game.creator.transfer(game.wager);
       game.challenger.transfer(game.wager);
     }
 
-    // The challenger wins
     /// @dev i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
-    else if (moveWinsAgainst[game.creatorMove] == game.challengerMove) {
+    else if (moveWinsAgainst[game.creatorMove] == game.challengerMove) { // The challenger wins
       game.challenger.transfer(totalPrizePool);
     }
 
-    // The creator wins
     /// @dev i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
-    else if (moveWinsAgainst[game.challengerMove] == game.creatorMove) {
+    else if (moveWinsAgainst[game.challengerMove] == game.creatorMove) { // The creator wins
       game.creator.transfer(totalPrizePool);
     }
 
     game.status = Status.Finished;
   }
 
-
+  // Game has begun, and funds are locked for the next 5,760 blocks (roughly 24 hours @ a 15sec blocktime) or unless there is a winner
+  // Include the checkGameExpiration(_gameId) modifier in every function below
+  // OR try using Ethereum Alarm Clock!!!
+  // Write a comment in the design pattern doc about how game expiration works
 
   // If the game time is over, and there is only one revealed answer, pay out to them
 
   // If the game time is over and there is no revealed answer, refund both players
 
-
+  /*
+  // Reusable code to check if the game has been open for too long
+  modifier checkGameExpiration(_gameId) internal {
+    Game storage game = games[_gameId];
+    if (game.gameStartBlock >= game.gameStartBlock + gameBlockTimeLimit) {
+      game.status = Status.Expired;
+      // There is no _; here because if this is called because the game is expired, no further action is taken
+    }
+  }
+  */
 
 
 }
