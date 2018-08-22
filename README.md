@@ -3,9 +3,9 @@
 
 What does this project do?
 
-Rock-paper-scissors is a game where players can be matched up against each other to win their opponent's entry fees. The game creator locks in an encrypted submission (rock, paper, or scissors) and an entry fee, and waits for an opponent to accept by matching the entry fee and submitting their own encrypted move. The game creator can also cancel any of their open games if no opponent has joined. When an opponent joins a created game, both players' entry fees are locked in the contract and both players are to reveal their submissions to determine the winner. A winner must be determined within 5,760 blocks (roughly 24 hours @ a 15sec blocktime) of the game's start, or the game will automatically be cancelled with the entry fee funds returned to both players.
+Rock-paper-scissors is a game where players can be matched up against each other for a chance to win money from their opponents. The game creator locks in an encrypted move (rock, paper, or scissors) and places a wager, and waits for an opponent to accept by matching the wager and submitting their own encrypted move. The game creator can also cancel any of their open games if no opponent has joined. When an opponent joins a created game, both players' wagers are locked in the contract and both players must then reveal their moves to determine the winner. A winner must be determined within 5,760 blocks (roughly 24 hours @ a 15sec blocktime) of the game's start, or the game will automatically be cancelled with each player's wager returned to them.
 
-If only one player reveals their submission by the end of the game's time limit (such as the opponent knowing that they lost and refusing to reveal), the revealing player automatically wins regardless of their opponent's unrevealed move. In the event of a double-reveal tie, the game ends and all funds are returned to players.
+If only one player reveals their move by the end of the game's time limit (such as the opponent knowing that they lost and refusing to reveal), the revealed player automatically wins regardless of their opponent's unrevealed move. In the event of a double-reveal tie, the game ends and each player's wager is returned to them.
 
 
 How to set it up
