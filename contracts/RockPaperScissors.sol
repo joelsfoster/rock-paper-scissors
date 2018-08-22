@@ -2,6 +2,10 @@ pragma solidity ^0.4.23;
 
 contract RockPaperScissors {
 
+  /*
+  <-- Global Variables and Constructor -->
+  */
+
   // Declare constructor variables
   address owner;
   uint gameIdCounter;
@@ -16,6 +20,11 @@ contract RockPaperScissors {
     gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
   }
 
+
+  /*
+  <-- Data Structures -->
+  */
+
   // The Game object
   struct Game {
     uint gameId;
@@ -26,6 +35,8 @@ contract RockPaperScissors {
     address winner;
     string creatorEncryptedMove;
     string challengerEncryptedMove;
+    Move creatorMove;
+    Move challengerMove;
     Status status;
   }
 
@@ -49,6 +60,11 @@ contract RockPaperScissors {
     Finished,
     Expired
   }
+
+
+  /*
+  <-- Modifiers -->
+  */
 
   // Reusable code to return any extra funds sent to the contract
   modifier returnExtraPayment(_wager) internal {
@@ -77,6 +93,11 @@ contract RockPaperScissors {
       // There is no _; here because if this is called because the game is expired, no further action is taken
     }
   }
+
+
+  /*
+  <-- Functions -->
+  */
 
   // Reusable code to check that a valid _move (string) was submitted
   /// @return Will return the appropriate Move enum matching the string
@@ -130,10 +151,23 @@ contract RockPaperScissors {
 
   // Game has begun, and funds are locked for the next 5,760 blocks (roughly 24 hours @ a 15sec blocktime) or unless there is a winner
   // Include the checkGameExpiration(_gameId) modifier in every function below
+  // OR try using Ethereum Alarm Clock!!!
   // Write a comment in the design pattern doc about how game expiration works
 
 
-  // Allow players to reveal their answers
+  // Allow players to reveal their moves by providing their password and repeating their move
+  function revealMove(_gameId, _move, _password) public validatePassword(_password) {
+    Game storage game = games[_gameId];
+    Move validatedMove = validateMove(_move);
+    require(validatedMove);
+    if (msg.sender == game.creator) {
+      require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
+      game.creatorMove = validatedMove;
+    } else if (msg.sender == game.challenger) {
+      require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
+      game.challengerMove = validatedMove;
+    }
+  }
 
   // If both player's answers are revealed and there is a winner, pay out to them
 
