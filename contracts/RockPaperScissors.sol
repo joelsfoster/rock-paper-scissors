@@ -12,6 +12,7 @@ contract RockPaperScissors {
   uint public gameIdCounter;
   uint public minimumWager;
   uint public gameBlockTimeLimit;
+  bytes32 internal emptyStringHash = keccak256('');
 
   // The Game object
   struct Game {
@@ -21,8 +22,8 @@ contract RockPaperScissors {
     address creator;
     address challenger;
     address winner;
-    string creatorEncryptedMove;
-    string challengerEncryptedMove;
+    bytes32 creatorEncryptedMove;
+    bytes32 challengerEncryptedMove;
     string creatorMove;
     string challengerMove;
     Status status;
@@ -43,10 +44,10 @@ contract RockPaperScissors {
   }
 
   // @return i.e. moveWinsAgainst['Rock'] returns 'Paper'
-  mapping (string => string) public moveWinsAgainst;
+  mapping (string => string) internal moveWinsAgainst;
 
   // Seeds the moveWinsAgainst mapping
-  function seedMoveWinsAgainst() internal pure {
+  function seedMoveWinsAgainst() internal {
     moveWinsAgainst['Rock'] = 'Paper';
     moveWinsAgainst['Paper'] = 'Scissors';
     moveWinsAgainst['Scissors'] = 'Rock';
@@ -85,13 +86,16 @@ contract RockPaperScissors {
 
   // Reusable code to check that a valid _password was submitted
   modifier validatePassword(string _password) {
-    require(keccak256(_password) != keccak256(''));
+    require(keccak256(_password) != emptyStringHash);
     _;
   }
 
   // Reusable code to check that a valid _wager was submitted and that enough funds were sent to pay it
   modifier validateWager(uint _wager) {
-    require(msg.value >= _wager && _wager >= minimumWager);
+    require(
+      msg.value >= _wager &&
+      _wager >= minimumWager
+    );
     _;
   }
 
@@ -134,7 +138,9 @@ contract RockPaperScissors {
       challenger: 0x0,
       winner: 0x0,
       creatorEncryptedMove: keccak256(_move, msg.sender, _password), // Encrypted using the user's password
-      challengerEncryptedMove: '',
+      challengerEncryptedMove: emptyStringHash,
+      creatorMove: '',
+      challengerMove: '',
       status: Status.Open
     });
     gameIdCounter++; // Prep the counter for the next game
@@ -143,7 +149,10 @@ contract RockPaperScissors {
   // Players can cancel their open game and get their wager deposits back
   function cancelGame(uint _gameId) public {
     Game storage game = games[_gameId];
-    require(msg.sender == game.creator && game.status == Status.Open);
+    require(
+      msg.sender == game.creator &&
+      game.status == Status.Open
+    );
     game.status = Status.Cancelled;
     game.creator.transfer(game.wager);
   }
@@ -151,7 +160,10 @@ contract RockPaperScissors {
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
   function joinGame(uint _gameId, string _move, string _password) public payable validateMove(_move) validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
     Game storage game = games[_gameId]; // Too bad Solidity doesn't let you define local variables in function arguments like JavaScript
-    require(game.creator != msg.sender && game.status == Status.Open); // You can't challenge yourself, and the game must be Open
+    require(
+      game.creator != msg.sender && // You can't challange yourself
+      game.status == Status.Open
+    );
     game.status = Status.AwaitingReveals;
     game.challenger = msg.sender;
     game.gameExpirationBlock = block.number + gameBlockTimeLimit;
@@ -161,7 +173,11 @@ contract RockPaperScissors {
   // Allow players to reveal their moves by providing their password and repeating their move
   function revealMove(uint _gameId, string _move, string _password) public checkGameExpiration(_gameId) validateMove(_move) validatePassword(_password) {
     Game storage game = games[_gameId];
-    require(game.status == Status.AwaitingReveals || game.status == Status.AwaitingCreatorReveal || game.status == Status.AwaitingChallengerReveal);
+    require(
+      game.status == Status.AwaitingReveals ||
+      game.status == Status.AwaitingCreatorReveal ||
+      game.status == Status.AwaitingChallengerReveal
+    );
 
     if (msg.sender == game.creator) { // If the creator reveals
       require(game.creatorEncryptedMove == keccak256(_move, msg.sender, _password));
@@ -175,7 +191,7 @@ contract RockPaperScissors {
       revert();
     }
 
-    if (game.creatorMove && game.challengerMove) { // If both players' moves are revealed, determine the winner
+    if (keccak256(game.creatorMove) != emptyStringHash && keccak256(game.challengerMove) != emptyStringHash) { // If both players' moves are revealed, determine the winner
       determineWinner(_gameId);
     }
   }
@@ -184,7 +200,10 @@ contract RockPaperScissors {
   function determineWinner(uint _gameId) internal {
     Game storage game = games[_gameId];
     uint totalPrizePool = game.wager * 2;
-    require(game.creatorMove && game.challengerMove);
+    require(
+      keccak256(game.creatorMove) != emptyStringHash &&
+      keccak256(game.challengerMove) != emptyStringHash
+    );
 
     /// @dev i.e. moveWinsAgainst['Rock'] returns 'Paper'
     if (keccak256(game.creatorMove) == keccak256(game.challengerMove)) { // If both players tie, refund both players
