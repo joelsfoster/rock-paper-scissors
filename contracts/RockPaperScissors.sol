@@ -17,11 +17,13 @@ contract RockPaperScissors {
   // The Game object
   struct Game {
     uint gameId;
-    address creator;
-    string creatorEncryptedMove;
     uint wager;
     uint gameStartBlock;
+    address creator;
     address challenger;
+    address winner;
+    string creatorEncryptedMove;
+    Status status;
   }
 
   // Game objects are identified by their gameId in a mapping called 'games', i.e. games[0] returns the first Game
@@ -32,6 +34,16 @@ contract RockPaperScissors {
     Rock,
     Paper,
     Scissors
+  }
+
+  // Game statuses
+  enum Status {
+    Open,
+    Cancelled,
+    AwaitingReveals,
+    AwaitingCreatorReveal,
+    AwaitingChallengerReveal,
+    Finished
   }
 
   // Reusable code to return any extra funds sent to the contract
@@ -68,13 +80,27 @@ contract RockPaperScissors {
     Move validatedMove = validateMove(_move);
     if (validatedMove) {
       string encryptedMove = sha3(validatedMove, msg.sender, _password);
-      games[gameIdCounter] = Game({gameId: gameIdCounter, creator: msg.sender, creatorEncryptedMove: encryptedMove, wager: _wager, gameStartBlock: 0, challenger: 0x0});
-      gameIdCounter++;
+      games[gameIdCounter] = Game({ // Create a new game
+        gameId: gameIdCounter,
+        wager: _wager,
+        gameStartBlock: null,
+        creator: msg.sender,
+        challenger: null,
+        winner: null,
+        creatorEncryptedMove: encryptedMove,
+        status: Status.Open
+      });
+      gameIdCounter++; // Prep the counter for the next game
     }
   }
 
-
-  // Player can cancel the open game and get their entry fee back
+  // Players can cancel their open game and get their wager deposits back
+  function cancelGame(_gameId) public {
+    Game storage game = games[_gameId];
+    require(msg.sender == game.creator);
+    game.status = Status.Cancelled;
+    game.creator.transfer(game.wager);
+  }
 
   // Opponent can see all open games
 
