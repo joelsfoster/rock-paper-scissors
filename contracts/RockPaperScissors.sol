@@ -12,6 +12,7 @@ contract RockPaperScissors {
   uint public gameIdCounter;
   uint public minimumWager;
   uint public gameBlockTimeLimit;
+  bytes32 internal emptyStringHash = keccak256('');
 
   // The Game object
   struct Game {
@@ -21,22 +22,15 @@ contract RockPaperScissors {
     address creator;
     address challenger;
     address winner;
-    string creatorEncryptedMove;
-    string challengerEncryptedMove;
-    Move creatorMove;
-    Move challengerMove;
+    bytes32 creatorEncryptedMove;
+    bytes32 challengerEncryptedMove;
+    string creatorMove;
+    string challengerMove;
     Status status;
   }
 
   // Game objects are identified by their gameId in a mapping called 'games', i.e. games[0] returns the first Game
   mapping (uint => Game) public games;
-
-  // Three possible Moves in this game
-  enum Move {
-    Rock,
-    Paper,
-    Scissors
-  }
 
   // Game statuses
   enum Status {
@@ -49,18 +43,18 @@ contract RockPaperScissors {
     Expired
   }
 
-  // @return i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
-  mapping (Move => Move) public moveWinsAgainst;
+  // @return i.e. moveWinsAgainst['Rock'] returns 'Paper'
+  mapping (string => string) internal moveWinsAgainst;
 
   // Seeds the moveWinsAgainst mapping
-  function seedMoveWinsAgainst() internal pure {
-    moveWinsAgainst[Move.Rock] = Move.Paper;
-    moveWinsAgainst[Move.Paper] = Move.Scissors;
-    moveWinsAgainst[Move.Scissors] = Move.Rock;
+  function seedMoveWinsAgainst() internal {
+    moveWinsAgainst['Rock'] = 'Paper';
+    moveWinsAgainst['Paper'] = 'Scissors';
+    moveWinsAgainst['Scissors'] = 'Rock';
   }
 
   // When the contract is deployed, set the owner and the global variables and seed the moveWinsAgainst mapping
-  constructor(_minimumEntryFee) public {
+  constructor(uint _minimumWager) public {
     owner = msg.sender;
     gameIdCounter = 0;
     minimumWager = _minimumWager;
@@ -74,35 +68,48 @@ contract RockPaperScissors {
   */
 
   // Reusable code to return any extra funds sent to the contract
-  modifier returnExtraPayment(_wager) internal pure {
+  modifier returnExtraPayment(uint _wager) {
     _; // This function modifier code executes after its parent function resolves
     uint amountToRefund = msg.value - _wager;
     msg.sender.transfer(amountToRefund);
   }
 
+  // Reusable code to check that a valid _move (string) was submitted
+  modifier validateMove(string _move) {
+    require(
+      keccak256(_move) == keccak256('Rock') ||
+      keccak256(_move) == keccak256('Paper') ||
+      keccak256(_move) == keccak256('Scissors')
+    );
+    _;
+  }
+
   // Reusable code to check that a valid _password was submitted
-  modifier validatePassword(_password) internal pure {
-    require(_password != '');
+  modifier validatePassword(string _password) {
+    require(keccak256(_password) != emptyStringHash);
     _;
   }
 
   // Reusable code to check that a valid _wager was submitted and that enough funds were sent to pay it
-  modifier validateWager(_wager) internal pure {
-    require(msg.value >= _wager && _wager >= minimumWager);
+  modifier validateWager(uint _wager) {
+    require(
+      msg.value >= _wager &&
+      _wager >= minimumWager
+    );
     _;
   }
 
   // When attempting to reveal your move, first check if the game expired and handle accordingly
-  modifier checkGameExpiration(_gameId) internal {
+  modifier checkGameExpiration(uint _gameId) {
     Game storage game = games[_gameId];
     uint totalPrizePool = game.wager * 2;
 
-    if (block.number >= game.gameExpirationBlock) { // If the game is expired, change the status and handle payments
+    if (block.number >= game.gameExpirationBlock && block.number != 0) { // If the game is expired, change the status and handle payments
       game.status = Status.Expired;
 
-      if (game.status == Status.AwaitingCreatorReveal && game.challengerMove) { // If only the challenger revealed, pay them
+      if (game.status == Status.AwaitingCreatorReveal) { // If only the challenger revealed, pay them
         game.challenger.transfer(totalPrizePool);
-      } else if (game.status == Status.AwaitingCreatorReveal && game.challengerMove) { // If only the creator revealed, pay them
+      } else if (game.status == Status.AwaitingCreatorReveal) { // If only the creator revealed, pay them
         game.creator.transfer(totalPrizePool);
       } else { // Under all other conditions, if the game is expired, refund both players
         game.creator.transfer(game.wager);
@@ -121,90 +128,92 @@ contract RockPaperScissors {
   <-- Functions -->
   */
 
-  // Reusable code to check that a valid _move (string) was submitted
-  /// @return Will return the appropriate Move enum matching the string
-  function validateMove(_move) internal pure {
-    require(_move == 'Rock' || _move == 'Paper' || _move == 'Scissors');
-    if (_move == 'Rock') { return Move.Rock }
-    else if (_move == 'Paper') { return Move.Paper }
-    else if (_move == 'Scissors') { return Move.Scissors }
-    else { return null };
-  }
-
   // Players can create a game by submitting their wager, using a password to encrypt their move
-  function createGame(_move, _password, _wager) public payable validatePassword(_password) validateWager(_wager) returnExtraPayment(_wager) {
-    Move validatedMove = validateMove(_move);
-    require (validatedMove);
+  function createGame(string _move, string _password, uint _wager) public payable validateMove(_move) validatePassword(_password) validateWager(_wager) returnExtraPayment(_wager) {
     games[gameIdCounter] = Game({ // Create a new game
       gameId: gameIdCounter,
       wager: _wager,
-      gameExpirationBlock: null,
+      gameExpirationBlock: 0,
       creator: msg.sender,
-      challenger: null,
-      winner: null,
-      creatorEncryptedMove: sha3(validatedMove, msg.sender, _password), // Encrypted using the user's password
-      challengerEncryptedMove: null,
+      challenger: 0x0,
+      winner: 0x0,
+      creatorEncryptedMove: keccak256(_move, msg.sender, _password), // Encrypted using the user's password
+      challengerEncryptedMove: emptyStringHash,
+      creatorMove: '',
+      challengerMove: '',
       status: Status.Open
     });
     gameIdCounter++; // Prep the counter for the next game
   }
 
   // Players can cancel their open game and get their wager deposits back
-  function cancelGame(_gameId) public {
+  function cancelGame(uint _gameId) public {
     Game storage game = games[_gameId];
-    require(msg.sender == game.creator && game.status == Status.Open);
+    require(
+      msg.sender == game.creator &&
+      game.status == Status.Open
+    );
     game.status = Status.Cancelled;
     game.creator.transfer(game.wager);
   }
 
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
-  function joinGame(_gameId, _move, _password) public payable validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
+  function joinGame(uint _gameId, string _move, string _password) public payable validateMove(_move) validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
     Game storage game = games[_gameId]; // Too bad Solidity doesn't let you define local variables in function arguments like JavaScript
-    Move validatedMove = validateMove(_move);
-    require(game.creator != msg.sender && game.status == Status.Open && validatedMove); // You can't challenge yourself, the game must be Open, and the inputted _move must be valid
+    require(
+      game.creator != msg.sender && // You can't challange yourself
+      game.status == Status.Open
+    );
     game.status = Status.AwaitingReveals;
     game.challenger = msg.sender;
     game.gameExpirationBlock = block.number + gameBlockTimeLimit;
-    game.challengerEncryptedMove = sha3(validatedMove, msg.sender, _password) // Encrypted using the user's password
+    game.challengerEncryptedMove = keccak256(_move, msg.sender, _password); // Encrypted using the user's password
   }
 
   // Allow players to reveal their moves by providing their password and repeating their move
-  function revealMove(_gameId, _move, _password) public checkGameExpiration(_gameId) validatePassword(_password) {
+  function revealMove(uint _gameId, string _move, string _password) public checkGameExpiration(_gameId) validateMove(_move) validatePassword(_password) {
     Game storage game = games[_gameId];
-    Move validatedMove = validateMove(_move);
-    require(validatedMove);
-    require(game.status == Status.AwaitingReveals || game.status == Status.AwaitingCreatorReveal || game.status == Status.AwaitingChallengerReveal);
+    require(
+      game.status == Status.AwaitingReveals ||
+      game.status == Status.AwaitingCreatorReveal ||
+      game.status == Status.AwaitingChallengerReveal
+    );
 
     if (msg.sender == game.creator) { // If the creator reveals
-      require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
-      game.creatorMove = validatedMove;
+      require(game.creatorEncryptedMove == keccak256(_move, msg.sender, _password));
+      game.creatorMove = _move;
       game.status = Status.AwaitingChallengerReveal;
     } else if (msg.sender == game.challenger) { // If the challenger reveals
-      require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
-      game.challengerMove = validatedMove;
+      require(game.creatorEncryptedMove == keccak256(_move, msg.sender, _password));
+      game.challengerMove = _move;
       game.status = Status.AwaitingCreatorReveal;
     } else { // Return the poor stranger his/her remaining gas
       revert();
     }
 
-    if (game.creatorMove && game.challengerMove) { // If both players' moves are revealed, determine the winner
+    if (keccak256(game.creatorMove) != emptyStringHash && keccak256(game.challengerMove) != emptyStringHash) { // If both players' moves are revealed, determine the winner
       determineWinner(_gameId);
     }
   }
 
   // If both player's answers are revealed, determine the winner or if it's a tie, and pay out accordingly
-  function determineWinner(_gameId) internal {
+  function determineWinner(uint _gameId) internal {
     Game storage game = games[_gameId];
     uint totalPrizePool = game.wager * 2;
-    require(game.creatorMove && game.challengerMove);
+    require(
+      keccak256(game.creatorMove) != emptyStringHash &&
+      keccak256(game.challengerMove) != emptyStringHash
+    );
 
-    /// @dev i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
-    if (game.creatorMove == game.challengerMove) { // If both players tie, refund both players
+    /// @dev i.e. moveWinsAgainst['Rock'] returns 'Paper'
+    if (keccak256(game.creatorMove) == keccak256(game.challengerMove)) { // If both players tie, refund both players
       game.creator.transfer(game.wager);
       game.challenger.transfer(game.wager);
-    } else if (moveWinsAgainst[game.creatorMove] == game.challengerMove) { // The challenger wins
+    } else if (keccak256(moveWinsAgainst[game.creatorMove]) == keccak256(game.challengerMove)) { // The challenger wins
+      game.winner = game.challenger;
       game.challenger.transfer(totalPrizePool);
-    } else if (moveWinsAgainst[game.challengerMove] == game.creatorMove) { // The creator wins
+    } else if (keccak256(moveWinsAgainst[game.challengerMove]) == keccak256(game.creatorMove)) { // The creator wins
+      game.winner = game.creator;
       game.creator.transfer(totalPrizePool);
     } else { // Refund the poor stranger his/her remaining gas
       revert();
