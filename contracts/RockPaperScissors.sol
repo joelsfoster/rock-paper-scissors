@@ -2,28 +2,16 @@ pragma solidity ^0.4.23;
 
 contract RockPaperScissors {
 
-  /*
-  <-- Global Variables and Constructor -->
-  */
-
-  // Declare constructor variables
-  address owner;
-  uint gameIdCounter;
-  uint minimumWager;
-  uint gameBlockTimeLimit;
-
-  // When the contract is deployed, set the owner and the variables
-  constructor(_minimumEntryFee) public {
-    owner = msg.sender;
-    gameIdCounter = 0;
-    minimumWager = _minimumWager;
-    gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
-  }
-
 
   /*
-  <-- Data Structures -->
+  <-- Global Variables, Data Structures, and Constructor -->
   */
+
+  // Declare global variables
+  address public owner;
+  uint public gameIdCounter;
+  uint public minimumWager;
+  uint public gameBlockTimeLimit;
 
   // The Game object
   struct Game {
@@ -61,33 +49,52 @@ contract RockPaperScissors {
     Expired
   }
 
+  // @return i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
+  mapping (Move => Move) public moveWinsAgainst;
+
+  // Seeds the moveWinsAgainst mapping
+  function seedMoveWinsAgainst() internal pure {
+    moveWinsAgainst[Move.Rock] = Move.Paper;
+    moveWinsAgainst[Move.Paper] = Move.Scissors;
+    moveWinsAgainst[Move.Scissors] = Move.Rock;
+  }
+
+  // When the contract is deployed, set the owner and the global variables and seed the moveWinsAgainst mapping
+  constructor(_minimumEntryFee) public {
+    owner = msg.sender;
+    gameIdCounter = 0;
+    minimumWager = _minimumWager;
+    gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
+    seedMoveWinsAgainst();
+  }
+
 
   /*
   <-- Modifiers -->
   */
 
   // Reusable code to return any extra funds sent to the contract
-  modifier returnExtraPayment(_wager) internal {
-    _; // This function modifier code executes after its parent function is called
+  modifier returnExtraPayment(_wager) internal pure {
+    _; // This function modifier code executes after its parent function resolves
     uint amountToRefund = msg.value - _wager;
     msg.sender.transfer(amountToRefund);
   }
 
   // Reusable code to check that a valid _password was submitted
-  modifier validatePassword(_password) internal {
+  modifier validatePassword(_password) internal pure {
     require(_password != '');
     _;
   }
 
   // Reusable code to check that a valid _wager was submitted and that enough funds were sent to pay it
-  modifier validateWager(_wager) internal {
+  modifier validateWager(_wager) internal pure {
     require(msg.value >= _wager && _wager >= minimumWager);
     _;
   }
 
   // Reusable code to check if the game has been open for too long
   modifier checkGameExpiration(_gameId) internal {
-    Game memory game = games[_gameId];
+    Game storage game = games[_gameId];
     if (game.gameStartBlock >= game.gameStartBlock + gameBlockTimeLimit) {
       game.status = Status.Expired;
       // There is no _; here because if this is called because the game is expired, no further action is taken
@@ -101,7 +108,7 @@ contract RockPaperScissors {
 
   // Reusable code to check that a valid _move (string) was submitted
   /// @return Will return the appropriate Move enum matching the string
-  function validateMove(_move) internal {
+  function validateMove(_move) internal pure {
     require(_move == 'Rock' || _move == 'Paper' || _move == 'Scissors');
     if (_move == 'Rock') { return Move.Rock }
     else if (_move == 'Paper') { return Move.Paper }
@@ -160,18 +167,55 @@ contract RockPaperScissors {
     Game storage game = games[_gameId];
     Move validatedMove = validateMove(_move);
     require(validatedMove);
+
+    // If the creator reveals
     if (msg.sender == game.creator) {
       require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
       game.creatorMove = validatedMove;
-    } else if (msg.sender == game.challenger) {
+      game.status = Status.AwaitingChallengerReveal;
+    }
+
+    // // If the challenger reveals
+    else if (msg.sender == game.challenger) {
       require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
       game.challengerMove = validatedMove;
+      game.status = Status.AwaitingCreatorReveal;
+    }
+
+    // If both players' moves are revealed, determine the winner
+    if (game.creatorMove && game.challengerMove) {
+      determineWinner(_gameId);
     }
   }
 
-  // If both player's answers are revealed and there is a winner, pay out to them
 
-  // If both players reveal and there is a tie, refund both players
+  // If both player's answers are revealed and there is a winner, pay out to them
+  function determineWinner(_gameId) internal {
+    Game storage game = games[_gameId];
+    uint totalPrizePool = game.wager * 2;
+
+    // If both players reveal and there is a tie, refund both players
+    if (game.creatorMove == game.challengerMove) {
+      game.creator.transfer(game.wager);
+      game.challenger.transfer(game.wager);
+    }
+
+    // The challenger wins
+    /// @dev i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
+    else if (moveWinsAgainst[game.creatorMove] == game.challengerMove) {
+      game.challenger.transfer(totalPrizePool);
+    }
+
+    // The creator wins
+    /// @dev i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
+    else if (moveWinsAgainst[game.challengerMove] == game.creatorMove) {
+      game.creator.transfer(totalPrizePool);
+    }
+
+    game.status = Status.Finished;
+  }
+
+
 
   // If the game time is over, and there is only one revealed answer, pay out to them
 
