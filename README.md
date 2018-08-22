@@ -20,3 +20,4 @@ How to set it up
 My stretch goals (if I have time)
 
 - Deploy the DApp to the Rinkby testnet (and add a deployed_addresses.txt file containing the address).
+- Implement Ethereum Alarm Clock to trigger game expirations.
