@@ -17,7 +17,7 @@ contract RockPaperScissors {
   struct Game {
     uint gameId;
     uint wager;
-    uint gameStartBlock;
+    uint gameExpirationBlock;
     address creator;
     address challenger;
     address winner;
@@ -114,7 +114,7 @@ contract RockPaperScissors {
     games[gameIdCounter] = Game({ // Create a new game
       gameId: gameIdCounter,
       wager: _wager,
-      gameStartBlock: null,
+      gameExpirationBlock: null,
       creator: msg.sender,
       challenger: null,
       winner: null,
@@ -143,7 +143,7 @@ contract RockPaperScissors {
 
     game.status = Status.AwaitingReveals;
     game.challenger = msg.sender;
-    game.gameStartBlock = block.number;
+    game.gameExpirationBlock = block.number + gameBlockTimeLimit;
     game.challengerEncryptedMove = sha3(validatedMove, msg.sender, _password) // Encrypted using the user's password
   }
 
@@ -157,12 +157,12 @@ contract RockPaperScissors {
       require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
       game.creatorMove = validatedMove;
       game.status = Status.AwaitingChallengerReveal;
-    }
-
-    else if (msg.sender == game.challenger) { // If the challenger reveals
+    } else if (msg.sender == game.challenger) { // If the challenger reveals
       require(game.creatorEncryptedMove == sha3(validatedMove, msg.sender, _password));
       game.challengerMove = validatedMove;
       game.status = Status.AwaitingCreatorReveal;
+    } else { // Refund the poor stranger his/her remaining gas
+      revert();
     }
 
     if (game.creatorMove && game.challengerMove) { // If both players' moves are revealed, determine the winner
@@ -176,19 +176,16 @@ contract RockPaperScissors {
     uint totalPrizePool = game.wager * 2;
     require(game.creatorMove && game.challengerMove);
 
+    /// @dev i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
     if (game.creatorMove == game.challengerMove) { // If both players tie, refund both players
       game.creator.transfer(game.wager);
       game.challenger.transfer(game.wager);
-    }
-
-    /// @dev i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
-    else if (moveWinsAgainst[game.creatorMove] == game.challengerMove) { // The challenger wins
+    } else if (moveWinsAgainst[game.creatorMove] == game.challengerMove) { // The challenger wins
       game.challenger.transfer(totalPrizePool);
-    }
-
-    /// @dev i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
-    else if (moveWinsAgainst[game.challengerMove] == game.creatorMove) { // The creator wins
+    } else if (moveWinsAgainst[game.challengerMove] == game.creatorMove) { // The creator wins
       game.creator.transfer(totalPrizePool);
+    } else { // Refund the poor stranger his/her remaining gas
+      revert();
     }
 
     game.status = Status.Finished;
@@ -207,7 +204,7 @@ contract RockPaperScissors {
   // Reusable code to check if the game has been open for too long
   modifier checkGameExpiration(_gameId) internal {
     Game storage game = games[_gameId];
-    if (game.gameStartBlock >= game.gameStartBlock + gameBlockTimeLimit) {
+    if (game.gameExpirationBlock >= block.number) {
       game.status = Status.Expired;
       // There is no _; here because if this is called because the game is expired, no further action is taken
     }
