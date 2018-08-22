@@ -49,14 +49,15 @@ contract RockPaperScissors {
     Expired
   }
 
-  // @return i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
-  mapping (Move => Move) public moveWinsAgainst;
+  // Maps the hash of a move (because Solidity doesn't support enums as keys) to the move it beats
+  // @return i.e. moveWinsAgainst[sha3(Move.Rock)] returns Move.Paper
+  mapping (bytes32 => Move) public moveWinsAgainst;
 
   // Seeds the moveWinsAgainst mapping
   function seedMoveWinsAgainst() internal pure {
-    moveWinsAgainst[Move.Rock] = Move.Paper;
-    moveWinsAgainst[Move.Paper] = Move.Scissors;
-    moveWinsAgainst[Move.Scissors] = Move.Rock;
+    moveWinsAgainst[sha3(Move.Rock)] = Move.Paper;
+    moveWinsAgainst[sha3(Move.Paper)] = Move.Scissors;
+    moveWinsAgainst[sha3(Move.Scissors)] = Move.Rock;
   }
 
   // When the contract is deployed, set the owner and the global variables and seed the moveWinsAgainst mapping
@@ -74,26 +75,26 @@ contract RockPaperScissors {
   */
 
   // Reusable code to return any extra funds sent to the contract
-  modifier returnExtraPayment(_wager) internal pure {
+  modifier returnExtraPayment(_wager) {
     _; // This function modifier code executes after its parent function resolves
     uint amountToRefund = msg.value - _wager;
     msg.sender.transfer(amountToRefund);
   }
 
   // Reusable code to check that a valid _password was submitted
-  modifier validatePassword(_password) internal pure {
+  modifier validatePassword(_password) {
     require(_password != '');
     _;
   }
 
   // Reusable code to check that a valid _wager was submitted and that enough funds were sent to pay it
-  modifier validateWager(_wager) internal pure {
+  modifier validateWager(_wager) {
     require(msg.value >= _wager && _wager >= minimumWager);
     _;
   }
 
   // When attempting to reveal your move, first check if the game expired and handle accordingly
-  modifier checkGameExpiration(_gameId) internal {
+  modifier checkGameExpiration(_gameId) {
     Game storage game = games[_gameId];
     uint totalPrizePool = game.wager * 2;
 
@@ -198,13 +199,13 @@ contract RockPaperScissors {
     uint totalPrizePool = game.wager * 2;
     require(game.creatorMove && game.challengerMove);
 
-    /// @dev i.e. moveWinsAgainst[Move.Rock] returns Move.Paper
+    /// @dev i.e. moveWinsAgainst[sha3(Move.Rock)] returns Move.Paper
     if (game.creatorMove == game.challengerMove) { // If both players tie, refund both players
       game.creator.transfer(game.wager);
       game.challenger.transfer(game.wager);
-    } else if (moveWinsAgainst[game.creatorMove] == game.challengerMove) { // The challenger wins
+    } else if (moveWinsAgainst[sha3(game.creatorMove)] == game.challengerMove) { // The challenger wins
       game.challenger.transfer(totalPrizePool);
-    } else if (moveWinsAgainst[game.challengerMove] == game.creatorMove) { // The creator wins
+    } else if (moveWinsAgainst[sha3(game.challengerMove)] == game.creatorMove) { // The creator wins
       game.creator.transfer(totalPrizePool);
     } else { // Refund the poor stranger his/her remaining gas
       revert();
