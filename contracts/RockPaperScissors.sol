@@ -10,7 +10,7 @@ contract RockPaperScissors {
   // Declare global variables
   address public owner;
   uint public gameIdCounter;
-  uint public minimumWager;
+  uint public minimumWager; // In wei, recommended: 5000000000000000 wei = .005 ether
   uint public gameBlockTimeLimit;
   bytes32 internal emptyStringHash = keccak256('');
 
@@ -57,7 +57,7 @@ contract RockPaperScissors {
   constructor(uint _minimumWager) public {
     owner = msg.sender;
     gameIdCounter = 0;
-    minimumWager = _minimumWager;
+    minimumWager = _minimumWager; // In wei (1 eth = 1000000000000000000 wei)
     gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
     seedMoveWinsAgainst();
   }
@@ -184,7 +184,7 @@ contract RockPaperScissors {
       game.creatorMove = _move;
       game.status = Status.AwaitingChallengerReveal;
     } else if (msg.sender == game.challenger) { // If the challenger reveals
-      require(game.creatorEncryptedMove == keccak256(_move, msg.sender, _password));
+      require(game.challengerEncryptedMove == keccak256(_move, msg.sender, _password));
       game.challengerMove = _move;
       game.status = Status.AwaitingCreatorReveal;
     } else { // Return the poor stranger his/her remaining gas
