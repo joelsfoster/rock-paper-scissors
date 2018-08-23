@@ -174,7 +174,7 @@ contract RockPaperScissors is Ownable {
       challengerMove: '',
       status: Status.Open
     });
-    gameIdCounter.add(1); // Prep the counter for the next game
+    gameIdCounter = gameIdCounter.add(1); // Prep the counter for the next game
   }
 
   // Players can cancel their open game and get their wager deposits back
