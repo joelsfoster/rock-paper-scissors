@@ -1,17 +1,17 @@
 # Design pattern decisions
 
-- Talk about commit/reveal
-- Contract simplicity and readability
-- Reducing gas/storage costs (use Remix to test different storage structures)
-- Emergency stop "circuit breaker"
+- Commit/Reveal: Implemented to ensure fair play.
+- Game Expiration: Implemented to ensure payouts always occurred, even for abandoned games or sore losers. For the MVP, I have yet to implement Ethereum Alarm Clock to trigger game expirations. The temporary hacked-together solution is to run an expiration check modifier function if any action is attempted on an in-progress game. In the event only one person revealed by the expiration time, they would have to resubmit their reveal in order to claim victory.
+- State Machine: I used an enum to indicate what state a game was in, to determine what functions can be called on it.
+- "Fail Early and Fail Loud": I used require() statements wherever possible, as the first execution in the function logic.
+- Restricting Access: I was very selective with what state variables are publicly readable, and what functions are publicly callable, and put checks in place to ensure the appropriate addresses (the players) are the only ones who can call functions on the games they're playing.
+- Owner-only Functions: I opted out of creating a selfdestruct function because I want users to trust that I won't run away with their in-escrow wagers. I didn't even want to implement a circuitBreaker function but it's a requirement for this assignment.
+- Contract Simplicity and Readability: I opted into writing a single contract, as opposed to separating the modifiers and function calls into separate contracts, because IMO the contract is still manageable to read. If it got any longer I'd certainly split it up into multiple inherited contracts for easier auditability. Yes, that would entail changing certain internal functions into private functions.
+- Circuit Breaker: The function owner can pause all action on the contract in case of an emergency. There is a situation here where games will still expire, thus possibly causing someone to lose an ongoing game.
+- Push vs Pull Payments: I opted out of implementing this design pattern to save on storage and to provide immediate gratification in the user experience. For safety's sake, this would be absolutely be up for consideration.
 
+<=====>
 
+Additional Notes
 
-Game Expirations
-
-For the MVP, I have yet to implement Ethereum Alarm Clock to trigger game expirations. The temporary hacked-together solution is to run an expiration check modifier function if any action is attempted on an in-progress game. I don't expect this to be a big issue with user experience, as I expect most if not all users to complete their games within 24 hours. In the event only one person revealed by the expiration time, they would have to resubmit their reveal in order to claim victory. 
-
-
-Game Incentives / UX Design
-
-I wrestled with the friction involved with having users (especially game creators) take multiple actions. The first iteration of the game's design was to have both players enter into the game and be locked in, then commit their move, then reveal. I realized since we're using encryption, the game creator can submit their move at the time they create the game, and reveal it after the opponent joined and committed their move. However, continuing that train of thought I realized that would mean the opponent's move didn't have to be encrypted since it's being submitted at the same time both players are locked into the game (auto-reveal the challenger's move at lock-in time, basically). This is a great experience for the challenger (1 MetaMask action), but a disincentivized experience for the game creator, who would not only have to create the game but also reveal their move within 24 hours of being challenged. This is 2 MetaMask actions, and the second action would have to take place only after a challenger is found, which could be inconvenient timing for the game creator. So, I decided to keep the system of both creator and challenger having to commit and reveal as separate actions, to keep things "more fair" in terms of inconvenience being experienced by either player. I went with this option instead of finding a way to compensate/incentivize game creators for the trouble of going through more friction. If you have opinions on this, please share them with me!
+- Game Incentives / UX Design: I wrestled with the friction involved with having users (especially game creators) take multiple actions. The first iteration of the game's design was to have both players enter into the game and be locked in, then commit their move, then reveal. I realized since we're using encryption, the game creator can submit their move at the time they create the game, and reveal it after the opponent joined and committed their move. However, continuing that train of thought I realized that would mean the opponent's move didn't have to be encrypted since it's being submitted at the same time both players are locked into the game (auto-reveal the challenger's move at lock-in time, basically). This is a great experience for the challenger (1 MetaMask action), but a disincentivized experience for the game creator, who would not only have to create the game but also reveal their move within 24 hours of being challenged. This is 2 MetaMask actions, and the second action would have to take place only after a challenger is found, which could be inconvenient timing for the game creator. So, I decided to keep the system of both creator and challenger having to commit and reveal as separate actions, to keep things "more fair" in terms of inconvenience being experienced by either player. I went with this option instead of finding a way to compensate/incentivize game creators for the trouble of going through more friction. If you have opinions on this, please share them with me!

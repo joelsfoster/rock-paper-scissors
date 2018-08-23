@@ -13,6 +13,7 @@ contract RockPaperScissors is Ownable {
   using SafeMath for uint;
 
   // Declare global variables
+  bool public contractPaused = false;
   uint public gameIdCounter;
   uint public minimumWager; // In wei, recommended: 5000000000000000 wei = .005 ether
   uint public gameBlockTimeLimit;
@@ -65,15 +66,22 @@ contract RockPaperScissors is Ownable {
     seedMoveWinsAgainst();
   }
 
-  // Using the Ownable contract, only the contract owner can execute this.
+  // The contract owner can pause all functionality
   function circuitBreaker() public onlyOwner {
-
+    if (contractPaused == false) { contractPaused = true; }
+    else { contractPaused = false; }
   }
 
 
   /*
   <-- Modifiers -->
   */
+
+  // If the contract is paused, stop the modified function
+  modifier checkIfPaused() {
+    require(contractPaused == false);
+    _;
+  }
 
   // Reusable code to return any extra funds sent to the contract
   modifier returnExtraPayment(uint _wager) {
@@ -152,7 +160,7 @@ contract RockPaperScissors is Ownable {
   */
 
   // Players can create a game by submitting their wager, using a password to encrypt their move
-  function createGame(string _move, string _password, uint _wager) public payable validateMove(_move) validatePassword(_password) validateWager(_wager) returnExtraPayment(_wager) {
+  function createGame(string _move, string _password, uint _wager) public payable checkIfPaused() validateMove(_move) validatePassword(_password) validateWager(_wager) returnExtraPayment(_wager) {
     games[gameIdCounter] = Game({ // Create a new game
       gameId: gameIdCounter,
       wager: _wager,
@@ -170,18 +178,18 @@ contract RockPaperScissors is Ownable {
   }
 
   // Players can cancel their open game and get their wager deposits back
-  function cancelGame(uint _gameId) public {
+  function cancelGame(uint _gameId) public checkIfPaused() {
     Game storage game = games[_gameId];
     require(
       msg.sender == game.creator &&
       game.status == Status.Open
     );
     game.status = Status.Cancelled;
-    game.creator.transfer(game.wager);
+    game.creator.transfer(game.wager); /// @dev Called after state changes to prevent recursive call attacks
   }
 
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
-  function joinGame(uint _gameId, string _move, string _password) public payable validateMove(_move) validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
+  function joinGame(uint _gameId, string _move, string _password) public payable checkIfPaused() validateMove(_move) validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
     Game storage game = games[_gameId]; // Too bad Solidity doesn't let you define local variables in function arguments like JavaScript
     require(
       game.creator != msg.sender && // You can't challange yourself
@@ -194,7 +202,7 @@ contract RockPaperScissors is Ownable {
   }
 
   // Allow players to reveal their moves by providing their password and repeating their move
-  function revealMove(uint _gameId, string _move, string _password) public checkGameExpiration(_gameId) validateMove(_move) validatePassword(_password) {
+  function revealMove(uint _gameId, string _move, string _password) public checkIfPaused() checkGameExpiration(_gameId) validateMove(_move) validatePassword(_password) {
     Game storage game = games[_gameId];
     require(
       game.status == Status.AwaitingReveals ||
@@ -220,7 +228,7 @@ contract RockPaperScissors is Ownable {
   }
 
   // If both player's answers are revealed, determine the winner or if it's a tie, and pay out accordingly
-  function determineWinner(uint _gameId) internal {
+  function determineWinner(uint _gameId) internal checkIfPaused() {
     Game storage game = games[_gameId];
     uint totalPrizePool = game.wager.mul(2);
     require(
@@ -234,10 +242,10 @@ contract RockPaperScissors is Ownable {
       game.challenger.transfer(game.wager);
     } else if (keccak256(moveWinsAgainst[game.creatorMove]) == keccak256(game.challengerMove)) { // The challenger wins
       game.winner = game.challenger;
-      game.challenger.transfer(totalPrizePool);
+      game.winner.transfer(totalPrizePool);
     } else if (keccak256(moveWinsAgainst[game.challengerMove]) == keccak256(game.creatorMove)) { // The creator wins
       game.winner = game.creator;
-      game.creator.transfer(totalPrizePool);
+      game.winner.transfer(totalPrizePool);
     } else { // Refund the poor stranger his/her remaining gas
       revert();
     }
