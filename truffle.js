@@ -19,7 +19,8 @@ module.exports = {
     development: {
       host: "127.0.0.1",
       port: 8545, // Set to match Ganache
-      network_id: "*" // Match any network id
+      network_id: "*", // Match any network id
+      gas: 6700000 // IMPORTANT: For tests to run, this should be set to be slightly less than the gas limit of Ganache
     }
   }
 };

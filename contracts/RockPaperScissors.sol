@@ -48,10 +48,10 @@ contract RockPaperScissors is Ownable {
     Expired
   }
 
-  /// @return i.e. moveWinsAgainst['Rock'] returns 'Paper'
+  /// @dev i.e. moveWinsAgainst['Rock'] returns 'Paper'
   mapping (string => string) internal moveWinsAgainst;
 
-  // Seeds the moveWinsAgainst mapping
+  // Seeds the moveWinsAgainst mapping above
   function seedMoveWinsAgainst() internal {
     moveWinsAgainst['Rock'] = 'Paper';
     moveWinsAgainst['Paper'] = 'Scissors';
