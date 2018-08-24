@@ -1,16 +1,21 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.24;
 
-contract RockPaperScissors {
+import "./Ownable.sol";
+import "./SafeMath.sol";
 
+contract RockPaperScissors is Ownable {
 
   /*
-  <-- Global Variables, Data Structures, and Constructor -->
+  <-- Global Variables, Data Structures, Constructor, and Circuit Breaker -->
   */
 
+  // The SafeMath library protects from overflows
+  using SafeMath for uint;
+
   // Declare global variables
-  address public owner;
+  bool public contractPaused = false;
   uint public gameIdCounter;
-  uint public minimumWager;
+  uint public minimumWager; // In wei, recommended: 5000000000000000 wei = .005 ether
   uint public gameBlockTimeLimit;
   bytes32 internal emptyStringHash = keccak256('');
 
@@ -43,10 +48,10 @@ contract RockPaperScissors {
     Expired
   }
 
-  // @return i.e. moveWinsAgainst['Rock'] returns 'Paper'
+  /// @dev i.e. moveWinsAgainst['Rock'] returns 'Paper'
   mapping (string => string) internal moveWinsAgainst;
 
-  // Seeds the moveWinsAgainst mapping
+  // Seeds the moveWinsAgainst mapping above
   function seedMoveWinsAgainst() internal {
     moveWinsAgainst['Rock'] = 'Paper';
     moveWinsAgainst['Paper'] = 'Scissors';
@@ -55,11 +60,16 @@ contract RockPaperScissors {
 
   // When the contract is deployed, set the owner and the global variables and seed the moveWinsAgainst mapping
   constructor(uint _minimumWager) public {
-    owner = msg.sender;
     gameIdCounter = 0;
-    minimumWager = _minimumWager;
+    minimumWager = _minimumWager; // In wei (1 eth = 1000000000000000000 wei)
     gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
     seedMoveWinsAgainst();
+  }
+
+  // The contract owner can pause all functionality
+  function circuitBreaker() public onlyOwner {
+    if (contractPaused == false) { contractPaused = true; }
+    else { contractPaused = false; }
   }
 
 
@@ -67,10 +77,16 @@ contract RockPaperScissors {
   <-- Modifiers -->
   */
 
+  // If the contract is paused, stop the modified function
+  modifier checkIfPaused() {
+    require(contractPaused == false);
+    _;
+  }
+
   // Reusable code to return any extra funds sent to the contract
   modifier returnExtraPayment(uint _wager) {
     _; // This function modifier code executes after its parent function resolves
-    uint amountToRefund = msg.value - _wager;
+    uint amountToRefund = msg.value.sub(_wager);
     msg.sender.transfer(amountToRefund);
   }
 
@@ -102,20 +118,35 @@ contract RockPaperScissors {
   // When attempting to reveal your move, first check if the game expired and handle accordingly
   modifier checkGameExpiration(uint _gameId) {
     Game storage game = games[_gameId];
-    uint totalPrizePool = game.wager * 2;
+    uint totalPrizePool = game.wager.mul(2);
 
-    if (block.number >= game.gameExpirationBlock && block.number != 0) { // If the game is expired, change the status and handle payments
+    // If the game is expired, handle payments then set the status BEFORE payment is issued, to prevent a recursive call attack
+    /// @dev The game.gameExpirationBlock is set to 0 at game creation and is changed to the real expiration when a challenger joins
+    if (block.number >= game.gameExpirationBlock && game.gameExpirationBlock != 0 && game.status != Status.Expired) {
       game.status = Status.Expired;
 
-      if (game.status == Status.AwaitingCreatorReveal) { // If only the challenger revealed, pay them
-        game.challenger.transfer(totalPrizePool);
-      } else if (game.status == Status.AwaitingCreatorReveal) { // If only the creator revealed, pay them
-        game.creator.transfer(totalPrizePool);
-      } else { // Under all other conditions, if the game is expired, refund both players
+      // If only the challenger revealed, pay them
+      if (
+        keccak256(game.creatorMove) == emptyStringHash &&
+        keccak256(game.challengerMove) != emptyStringHash
+        ) { game.challenger.transfer(totalPrizePool); }
+
+      // If only the creator revealed, pay them
+      else if (
+        keccak256(game.creatorMove) != emptyStringHash &&
+        keccak256(game.challengerMove) == emptyStringHash
+        ) { game.creator.transfer(totalPrizePool); }
+
+      // If neither of the players are revealed and the game is expired, refund both players
+      else if (
+        keccak256(game.creatorMove) == emptyStringHash &&
+        keccak256(game.challengerMove) == emptyStringHash
+        ) {
         game.creator.transfer(game.wager);
         game.challenger.transfer(game.wager);
       }
-      revert(); // Ends the function without continuing
+
+      revert(); // Ends the parent function without continuing (uses the same opcode as require())
     }
 
     else {
@@ -129,7 +160,7 @@ contract RockPaperScissors {
   */
 
   // Players can create a game by submitting their wager, using a password to encrypt their move
-  function createGame(string _move, string _password, uint _wager) public payable validateMove(_move) validatePassword(_password) validateWager(_wager) returnExtraPayment(_wager) {
+  function createGame(string _move, string _password, uint _wager) public payable checkIfPaused() validateMove(_move) validatePassword(_password) validateWager(_wager) returnExtraPayment(_wager) {
     games[gameIdCounter] = Game({ // Create a new game
       gameId: gameIdCounter,
       wager: _wager,
@@ -143,22 +174,22 @@ contract RockPaperScissors {
       challengerMove: '',
       status: Status.Open
     });
-    gameIdCounter++; // Prep the counter for the next game
+    gameIdCounter = gameIdCounter.add(1); // Prep the counter for the next game
   }
 
   // Players can cancel their open game and get their wager deposits back
-  function cancelGame(uint _gameId) public {
+  function cancelGame(uint _gameId) public checkIfPaused() {
     Game storage game = games[_gameId];
     require(
       msg.sender == game.creator &&
       game.status == Status.Open
     );
     game.status = Status.Cancelled;
-    game.creator.transfer(game.wager);
+    game.creator.transfer(game.wager); /// @dev Called after state changes to prevent recursive call attacks
   }
 
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
-  function joinGame(uint _gameId, string _move, string _password) public payable validateMove(_move) validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
+  function joinGame(uint _gameId, string _move, string _password) public payable checkIfPaused() validateMove(_move) validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
     Game storage game = games[_gameId]; // Too bad Solidity doesn't let you define local variables in function arguments like JavaScript
     require(
       game.creator != msg.sender && // You can't challange yourself
@@ -166,12 +197,12 @@ contract RockPaperScissors {
     );
     game.status = Status.AwaitingReveals;
     game.challenger = msg.sender;
-    game.gameExpirationBlock = block.number + gameBlockTimeLimit;
+    game.gameExpirationBlock = block.number.add(gameBlockTimeLimit);
     game.challengerEncryptedMove = keccak256(_move, msg.sender, _password); // Encrypted using the user's password
   }
 
   // Allow players to reveal their moves by providing their password and repeating their move
-  function revealMove(uint _gameId, string _move, string _password) public checkGameExpiration(_gameId) validateMove(_move) validatePassword(_password) {
+  function revealMove(uint _gameId, string _move, string _password) public checkIfPaused() checkGameExpiration(_gameId) validateMove(_move) validatePassword(_password) {
     Game storage game = games[_gameId];
     require(
       game.status == Status.AwaitingReveals ||
@@ -184,7 +215,7 @@ contract RockPaperScissors {
       game.creatorMove = _move;
       game.status = Status.AwaitingChallengerReveal;
     } else if (msg.sender == game.challenger) { // If the challenger reveals
-      require(game.creatorEncryptedMove == keccak256(_move, msg.sender, _password));
+      require(game.challengerEncryptedMove == keccak256(_move, msg.sender, _password));
       game.challengerMove = _move;
       game.status = Status.AwaitingCreatorReveal;
     } else { // Return the poor stranger his/her remaining gas
@@ -197,9 +228,9 @@ contract RockPaperScissors {
   }
 
   // If both player's answers are revealed, determine the winner or if it's a tie, and pay out accordingly
-  function determineWinner(uint _gameId) internal {
+  function determineWinner(uint _gameId) internal checkIfPaused() {
     Game storage game = games[_gameId];
-    uint totalPrizePool = game.wager * 2;
+    uint totalPrizePool = game.wager.mul(2);
     require(
       keccak256(game.creatorMove) != emptyStringHash &&
       keccak256(game.challengerMove) != emptyStringHash
@@ -211,10 +242,10 @@ contract RockPaperScissors {
       game.challenger.transfer(game.wager);
     } else if (keccak256(moveWinsAgainst[game.creatorMove]) == keccak256(game.challengerMove)) { // The challenger wins
       game.winner = game.challenger;
-      game.challenger.transfer(totalPrizePool);
+      game.winner.transfer(totalPrizePool);
     } else if (keccak256(moveWinsAgainst[game.challengerMove]) == keccak256(game.creatorMove)) { // The creator wins
       game.winner = game.creator;
-      game.creator.transfer(totalPrizePool);
+      game.winner.transfer(totalPrizePool);
     } else { // Refund the poor stranger his/her remaining gas
       revert();
     }

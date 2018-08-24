@@ -19,5 +19,8 @@ How to set it up
 
 My stretch goals (if I have time)
 
-- Deploy the DApp to the Rinkby testnet (and add a deployed_addresses.txt file containing the address).
-- Implement Ethereum Alarm Clock to trigger game expirations.
+- Consider implementing the "Balance Withdrawal" design pattern (increasing safety but sacrificing UX)
+- Deploy the DApp to the Rinkby testnet (and add a deployed_addresses.txt file containing the address)
+- Implement Ethereum Alarm Clock to trigger game expirations
+- Unit tests for modifiers that throw revert() via require fails
+- Unit tests for all publicly-callable getter functions
