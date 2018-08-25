@@ -13,6 +13,13 @@ contract('RockPaperScissors', async (accounts) => {
       rockPaperScissors = await RockPaperScissors.new(5000000000000000);
     });
 
+
+    /*
+    <--- Testing the main contract functions --->
+    They're listed in logical sequence, i.e. the game creation
+    and game getter functions are needed for subsequent tests.
+    */
+
     /// @dev Testing the circuitBreaker function
     it("should flip the circuit breaker", async () => {
       await rockPaperScissors.circuitBreaker({from: owner});
