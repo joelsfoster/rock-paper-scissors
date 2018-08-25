@@ -91,6 +91,7 @@ contract RockPaperScissors is Ownable {
   }
 
   // Reusable code to check that a valid _move (string) was submitted
+  /// @dev We can't compare strings in solidity, so instead we compare hashes of strings to see if they match
   modifier validateMove(string _move) {
     require(
       keccak256(_move) == keccak256('Rock') ||
