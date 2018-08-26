@@ -10,8 +10,9 @@ import './App.css';
 
 class App extends Component {
 
+
   /*
-  <-- State -->
+  <-- App State -->
   */
 
   constructor(props) {
@@ -50,23 +51,30 @@ class App extends Component {
     });
   }
 
+  // Once a web3 instance is detected in the browser, mount the contract ABI
   instantiateContract() {
     const contract = require('truffle-contract');
     const rockPaperScissors = contract(RockPaperScissorsContract);
-    rockPaperScissors.setProvider(this.state.web3.currentProvider); // Point to the contract json
-    let rockPaperScissorsInstance;
+    rockPaperScissors.setProvider(this.state.web3.currentProvider); // Point to the contract ABI json
 
-    // When contract is instantiated, get the account
+    // When contract is instantiated, get the account and the minimumWager
     this.state.web3.eth.getAccounts((error, accounts) => {
       rockPaperScissors.deployed().then((instance) => {
-        rockPaperScissorsInstance = instance;
-        this.setState({ contract: rockPaperScissorsInstance, contractAddress: rockPaperScissorsInstance.address, account: accounts[0] });
-
-        // Then get the balance for this account and the minimumWager
-      }).then((result) => {
-        this.refreshBalance();
+        this.setState({ contract: instance, contractAddress: instance.address, account: accounts[0] });
         this.getMinimumWager();
+      }).then((result) => {
+        this.refreshBalance(); // Then get the balance for this account
       });
+
+      // Constantly be checking if the account has changed, and refresh state if so
+      setInterval( () => {
+        const currentAccount = this.state.web3.eth.accounts[0];
+        if (currentAccount !== this.state.account) {
+          this.setState({ account: currentAccount });
+          this.refreshBalance();
+          // window.location.reload();
+        }
+      }, 100);
     });
   }
 
@@ -94,6 +102,8 @@ class App extends Component {
 
   handleWagerChange(event) {
     this.setState({wager: event.target.value});
+    const wagerInWei = this.state.web3.toWei(event.target.value);
+    this.setState({wagerInWei: wagerInWei});
   }
 
   handleNewGameMoveChange(event) {
@@ -122,7 +132,11 @@ class App extends Component {
   */
 
   handleNewGame(event) {
-
+    this.state.contract.createGame(this.state.newGameMove, this.state.newGamePassword, this.state.wagerInWei, {from: this.state.account, value: this.state.wagerInWei})
+    .then((result) => {
+      console.log("Game created");
+      // Retreive my game
+    });
 
     /*
     const contract = this.state.contract;
@@ -142,7 +156,6 @@ class App extends Component {
 
 
   // "Tab" window for New Game, Join Game, My Games (with Cancel Game button), Reveal Move
-  // Ability to create a new game by entering in UI fields and sending ether
   // Ability to join game by by entering in UI fields and sending ether
   // Ability to look at ongoing and finished games (need to index!!!)
   // Ability to reveal moves in ongoing games
@@ -178,8 +191,8 @@ class App extends Component {
               </div>
 
               <div className="info">
-                <p>The default address you are playing with is: {this.state.account}</p>
-                <p>Your default address' ETH balance is: {this.state.balance} ETH</p>
+                <p>The address you are playing with is: {this.state.account}</p>
+                <p>Your ETH balance is: {this.state.balance} ETH</p>
                 <p>This game's contract is deployed at: {this.state.contractAddress}<br/><i>Ensure this address matches your MetaMask's "send transaction" confirmations!</i></p>
                 <p>Minimum wager: {this.state.minimumWager} ETH</p>
               </div>
