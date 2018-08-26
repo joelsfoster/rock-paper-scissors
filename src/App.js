@@ -164,7 +164,7 @@ class App extends Component {
               </div>
 
               <div className="rules">
-              <h2>Rules</h2>
+                <h2>Rules</h2>
                 <ol>
                   <li>Create a game by setting a wager. If you win, your opponent will pay you that wager. If you lose, you'll pay them.</li>
                   <li>You and your opponent each submit a password-encrypted move (rock, paper, or scissors) that no human or computer is capable of reverse-encrypting.</li>
