@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 import React, { Component } from 'react';
 import RockPaperScissorsContract from '../build/contracts/RockPaperScissors.json';
 import getWeb3 from './utils/getWeb3';
@@ -35,6 +37,16 @@ class App extends Component {
       availableGames: [], // All open games where the user is not the creator
       myGames: [] // All games where the user is/was either the creator or challenger
     };
+
+    this.gameStatusReference = {
+      0: "Open",
+      1: "Cancelled",
+      2: "Awaiting Reveals",
+      3: "Awaiting Creator Reveal",
+      4: "Awaiting Challenger Reveal",
+      5: "Finished",
+      6: "Expired"
+    }
   }
 
 
@@ -81,7 +93,7 @@ class App extends Component {
           }
 
           if (game.creator !== this.state.account) {
-            this.cleanAndUpdateGameArray(game, this.state.availableGames, "availableGames");
+            this.updateGameArray(game, this.state.availableGames, "availableGames");
           }
         });
 
@@ -101,7 +113,7 @@ class App extends Component {
             status: data.status.c[0],
             winner: data.winner
           }
-          this.cleanAndUpdateGameArray(game, this.state.myGames, "myGames");
+          this.updateGameArray(game, this.state.myGames, "myGames");
         });
 
         // Where the user joined a game
@@ -116,7 +128,7 @@ class App extends Component {
             status: data.status.c[0],
             winner: data.winner
           }
-          this.cleanAndUpdateGameArray(game, this.state.myGames, "myGames");
+          this.updateGameArray(game, this.state.myGames, "myGames");
         });
 
         // Then get the balance for this account
@@ -145,10 +157,9 @@ class App extends Component {
   /// @params game is the game object
   /// @params i.e. array = this.state.availableGames
   /// @params i.e. stateObject = "availableGames"
-  cleanAndUpdateGameArray(game, stateArray, stateObject) {
+  updateGameArray(game, stateArray, stateObject) {
     let index = 0;
     stateArray.map(currentGame => { // Loop through the array and delete stale data
-      // eslint-disable-next-line
       if (currentGame.gameId == game.gameId) {
         stateArray.splice(index, 1); // Delete from array
       }
@@ -225,10 +236,10 @@ class App extends Component {
           <p>
             Game ID: {game.gameId}<br/>
             Wager: {game.wager} ETH<br/>
-            Status: {game.status}<br/>
+            Status: {this.gameStatusReference[game.status]}<br/>
             Creator: {game.creator}<br/>
-            Challenger: {game.challenger}<br/>
-            Winner: {game.winner}
+            Challenger: {game.challenger == "0x0000000000000000000000000000000000000000" ? "" : game.challenger}<br/>
+            Winner: {game.winner == "0x0000000000000000000000000000000000000000" ? "" : game.winner}
           </p>
         </div>
       )
@@ -262,8 +273,7 @@ class App extends Component {
     event.preventDefault();
     let wager;
     this.state.availableGames.map(game => { // Find the game's wager by looking in the availableGames array
-      // eslint-disable-next-line
-      if (game.gameId == this.state.joinGameId) { // This line was throwing linting errors because it's not ===, which would break it
+      if (game.gameId == this.state.joinGameId) {
         wager = game.wager;
         return null;
       }
@@ -278,10 +288,12 @@ class App extends Component {
     });
   }
 
+  handleRevealMove(event) {
+    event.preventDefault();
+
+  }
 
   // Ability to reveal moves in ongoing games
-  // Status translator in "my games"
-  // Empty states for Challenger and Winner
   // Add loading GIF
 
 
