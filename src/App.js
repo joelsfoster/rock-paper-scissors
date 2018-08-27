@@ -3,7 +3,6 @@
 import React, { Component } from 'react';
 import RockPaperScissorsContract from '../build/contracts/RockPaperScissors.json';
 import getWeb3 from './utils/getWeb3';
-// import NewGameField from './components/NewGameField';
 
 import './css/oswald.css';
 import './css/open-sans.css';
@@ -29,13 +28,13 @@ class App extends Component {
       balance: null,
       wager: null, // In ETH
       wagerInWei: null,
-      newGameMove: "Rock", // "Rock" by default
+      newGameMove: "Rock",
       newGamePassword: null,
       cancelGameId: null,
       joinGameId: null,
-      joinGameMove: "Rock", // "Rock" by default
+      joinGameMove: "Rock",
       joinGamePassword: null,
-      revealMove: "Rock", // "Rock" by default
+      revealMove: "Rock",
       revealMovePassword: null,
       revealMoveGameId: null,
       availableGames: [], // All open games where the user is not the creator
