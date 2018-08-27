@@ -14,7 +14,7 @@ contract RockPaperScissors is Ownable {
 
   // Declare global variables
   bool public contractPaused = false;
-  uint public gameIdCounter = 1; // We want the first game created to have ID = 1
+  uint public gameIdCounter;
   uint public minimumWager; // In wei, recommended: 5000000000000000 wei = .005 ether
   uint public gameBlockTimeLimit;
   bytes32 internal emptyStringHash = keccak256('');
@@ -63,7 +63,7 @@ contract RockPaperScissors is Ownable {
 
   // When the contract is deployed, set the owner and the global variables and seed the moveWinsAgainst mapping
   constructor(uint _minimumWager) public {
-    gameIdCounter = 0;
+    gameIdCounter = 1; // We want the first game created to have ID = 1
     minimumWager = _minimumWager; // In wei (1 eth = 1000000000000000000 wei)
     gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
     seedMoveWinsAgainst();

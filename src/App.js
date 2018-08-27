@@ -1,7 +1,8 @@
+/* eslint-disable */
+
 import React, { Component } from 'react';
 import RockPaperScissorsContract from '../build/contracts/RockPaperScissors.json';
 import getWeb3 from './utils/getWeb3';
-// import NewGameField from './components/NewGameField';
 
 import './css/oswald.css';
 import './css/open-sans.css';
@@ -26,14 +27,29 @@ class App extends Component {
       account: null,
       balance: null,
       wager: null, // In ETH
-      newGameMove: "Rock", // "Rock" by default
+      wagerInWei: null,
+      newGameMove: "Rock",
       newGamePassword: null,
+      cancelGameId: null,
       joinGameId: null,
-      joinGameMove: "Rock", // "Rock" by default
+      joinGameMove: "Rock",
       joinGamePassword: null,
+      revealMove: "Rock",
+      revealMovePassword: null,
+      revealMoveGameId: null,
       availableGames: [], // All open games where the user is not the creator
       myGames: [] // All games where the user is/was either the creator or challenger
     };
+
+    this.gameStatusReference = {
+      0: "Open",
+      1: "Cancelled",
+      2: "Awaiting Reveals",
+      3: "Awaiting Creator Reveal",
+      4: "Awaiting Challenger Reveal",
+      5: "Finished",
+      6: "Expired"
+    }
   }
 
 
@@ -78,9 +94,9 @@ class App extends Component {
             status: data.status.c[0],
             winner: data.winner
           }
+
           if (game.creator !== this.state.account) {
-            let newAvailableGamesArray = this.state.availableGames.concat(game); // Add the new game to a temporary array
-            this.setState({ availableGames: newAvailableGamesArray }); // Replace the state with the new array
+            this.updateGameArray(game, this.state.availableGames, "availableGames");
           }
         });
 
@@ -100,8 +116,7 @@ class App extends Component {
             status: data.status.c[0],
             winner: data.winner
           }
-          let newMyGamesArray = this.state.myGames.concat(game); // Add the new game to a temporary array
-          this.setState({ myGames: newMyGamesArray }); // Replace the state with the new array
+          this.updateGameArray(game, this.state.myGames, "myGames");
         });
 
         // Where the user joined a game
@@ -116,8 +131,7 @@ class App extends Component {
             status: data.status.c[0],
             winner: data.winner
           }
-          let newMyGamesArray = this.state.myGames.concat(game); // Add the new game to a temporary array
-          this.setState({ myGames: newMyGamesArray }); // Replace the state with the new array
+          this.updateGameArray(game, this.state.myGames, "myGames");
         });
 
         // Then get the balance for this account
@@ -139,8 +153,27 @@ class App extends Component {
 
 
   /*
-  <-- State refresher functions and UI loaders -->
+  <-- Utils, state refresher functions, and UI loaders -->
   */
+
+  // Replaces stale event data, such as when a game is created then cancelled in the same session
+  /// @params game is the game object
+  /// @params i.e. array = this.state.availableGames
+  /// @params i.e. stateObject = "availableGames"
+  updateGameArray(game, stateArray, stateObject) {
+    let index = 0;
+    stateArray.map(currentGame => { // Loop through the array and delete stale data
+      if (currentGame.gameId == game.gameId) {
+        stateArray.splice(index, 1); // Delete from array
+      }
+      return index++;
+    });
+
+    // Add the new game to the cleaned array and set the state to the cleaned, updated array
+    const newArray = stateArray.concat(game);
+    const updatedStateObject = { [stateObject]: newArray };
+    this.setState(updatedStateObject);
+  }
 
   getMinimumWager() {
     this.state.contract.minimumWager.call(this.state.account)
@@ -159,12 +192,6 @@ class App extends Component {
     });
   }
 
-  handleWagerChange(event) {
-    this.setState({wager: event.target.value});
-    const wagerInWei = this.state.web3.toWei(event.target.value);
-    this.setState({wagerInWei: wagerInWei});
-  }
-
   handleNewGameMoveChange(event) {
     this.setState({newGameMove: event.target.value});
   }
@@ -173,16 +200,38 @@ class App extends Component {
     this.setState({newGamePassword: event.target.value});
   }
 
-  handleJoinGameIdChange(event) {
-    this.setState({joinGameId: event.target.value});
+  handleWagerChange(event) {
+    this.setState({wager: event.target.value});
+    const wagerInWei = this.state.web3.toWei(event.target.value);
+    this.setState({wagerInWei: wagerInWei});
+  }
+
+  handleCancelGameIdChange(event) {
+    this.setState({cancelGameId: event.target.value});
   }
 
   handleJoinGameMoveChange(event) {
-    this.setState({newGameMove: event.target.value});
+    this.setState({joinGameMove: event.target.value});
   }
 
   handleJoinGamePasswordChange(event) {
     this.setState({joinGamePassword: event.target.value});
+  }
+
+  handleJoinGameIdChange(event) {
+    this.setState({joinGameId: event.target.value});
+  }
+
+  handleRevealMoveChange(event) {
+    this.setState({revealMove: event.target.value});
+  }
+
+  handleRevealMovePasswordChange(event) {
+    this.setState({revealMovePassword: event.target.value});
+  }
+
+  handleRevealMoveGameIdChange(event) {
+    this.setState({revealMoveGameId: event.target.value});
   }
 
   renderAvailableGames() {
@@ -202,10 +251,10 @@ class App extends Component {
           <p>
             Game ID: {game.gameId}<br/>
             Wager: {game.wager} ETH<br/>
-            Status: {game.status}<br/>
+            Status: {this.gameStatusReference[game.status]}<br/>
             Creator: {game.creator}<br/>
-            Challenger: {game.challenger}<br/>
-            Winner: {game.winner}
+            Challenger: {game.challenger == "0x0000000000000000000000000000000000000000" ? "" : game.challenger}<br/>
+            Winner: {game.winner == "0x0000000000000000000000000000000000000000" ? "" : game.winner}
           </p>
         </div>
       )
@@ -220,20 +269,27 @@ class App extends Component {
   handleNewGame(event) {
     event.preventDefault();
     this.state.contract.createGame(this.state.newGameMove, this.state.newGamePassword, this.state.wagerInWei, {from: this.state.account, value: this.state.wagerInWei})
-    .then((result) => {
+    .then((error, result) => {
       console.log("Game created");
+      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
+    });
+  }
+
+  handleCancelGame(event) {
+    event.preventDefault();
+    this.state.contract.cancelGame(this.state.cancelGameId, {from: this.state.account})
+    .then((error, result) => {
+      console.log("Game cancelled");
+      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
     });
   }
 
   handleJoinGame(event) {
     event.preventDefault();
-    // Find the game's wager by looking in the availableGames array
     let wager;
-    this.state.availableGames.map(game => {
-      // eslint-disable-next-line
+    this.state.availableGames.map(game => { // Find the game's wager by looking in the availableGames array
       if (game.gameId == this.state.joinGameId) {
         wager = game.wager;
-        console.log("1st", wager);
         return null;
       }
       return null;
@@ -241,17 +297,20 @@ class App extends Component {
 
     const wagerInWei = this.state.web3.toWei(wager, 'ether');
     this.state.contract.joinGame(this.state.joinGameMove, this.state.joinGamePassword, this.state.joinGameId, {from: this.state.account, value: wagerInWei})
-    .then((result) => {
+    .then((error, result) => {
       console.log("Game joined");
+      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
     });
   }
 
-
-  // Ability to reveal moves in ongoing games
-  // Status translator in "my games"
-  // Empty states for Challenger and Winner
-  // Add loading GIF
-
+  handleRevealMove(event) {
+    event.preventDefault();
+    this.state.contract.revealMove(this.state.revealMove, this.state.revealMovePassword, this.state.revealMoveGameId, {from: this.state.account})
+    .then((error, result) => {
+      console.log("Move revealed");
+      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
+    });
+  }
 
 
   render() {
@@ -267,7 +326,7 @@ class App extends Component {
               <div className="intro">
               <h1>Rock Paper Scissors</h1>
                 <p>
-                  Win money from strangers! This blockchain-based rock-paper-scissors game is provably fair and guarantees payouts!
+                  Win money from strangers! This blockchain-based rock-paper-scissors game is provably fair and guarantees immediate payouts.
                   See the code <a href='https://github.com/joelsfoster/rock-paper-scissors'>here</a>.
                 </p>
               </div>
@@ -277,6 +336,7 @@ class App extends Component {
                 <ol>
                   <li>Create a game by setting a wager. If you win, your opponent will pay you that wager. If you lose, you'll pay them.</li>
                   <li>You and your opponent each submit a password-encrypted move (rock, paper, or scissors) that no human or computer is capable of reverse-encrypting.</li>
+                  <li>Make sure you remember your move! You will need to re-enter it later.</li>
                   <li>Once both players submit their moves, their wagers are locked in the game.</li>
                   <li>Both players must then reveal their moves by entering their password and move to prove that it matches their original one.</li>
                   <li>You have 24 hours to complete the game.</li>
@@ -305,7 +365,7 @@ class App extends Component {
                   </select>
                   <input type="password" name="password" placeholder="Password" value={this.state.newGamePassword ? this.state.newGamePassword : ""} onChange={this.handleNewGamePasswordChange.bind(this)} />
                   <input type="text" name="wager" placeholder="Wager (in ETH)" value={this.state.wager ? this.state.wager : ""} onChange={this.handleWagerChange.bind(this)} />
-                  <button onClick={this.handleNewGame.bind(this)}>Create</button>
+                  <button onClick={this.handleNewGame.bind(this)}>Create Game</button>
                 </form>
               </div>
 
@@ -326,7 +386,7 @@ class App extends Component {
                   </select>
                   <input type="password" name="password" placeholder="Password" value={this.state.joinGamePassword ? this.state.joinGamePassword : ""} onChange={this.handleJoinGamePasswordChange.bind(this)} />
                   <input type="text" name="gameId" placeholder="Game ID" value={this.state.joinGameId ? this.state.joinGameId : ""} onChange={this.handleJoinGameIdChange.bind(this)} />
-                  <button onClick={this.handleJoinGame.bind(this)}>Join</button>
+                  <button onClick={this.handleJoinGame.bind(this)}>Join Game</button>
                 </form>
               </div>
 
@@ -335,6 +395,28 @@ class App extends Component {
               <div className="my-games">
                 <h3>My Games</h3>
                 {this.renderMyGames()}
+              </div>
+
+              <div className="reveal-move">
+                <h3>Reveal Move</h3>
+                <form>
+                  <select onChange={this.handleRevealMoveChange.bind(this)}>
+                    <option value="Rock">Rock</option>
+                    <option value="Paper">Paper</option>
+                    <option value="Scissors">Scissors</option>
+                  </select>
+                  <input type="password" name="password" placeholder="Password" value={this.state.revealMovePassword ? this.state.revealMovePassword : ""} onChange={this.handleRevealMovePasswordChange.bind(this)} />
+                  <input type="text" name="gameId" placeholder="Game ID" value={this.state.revealMoveGameId ? this.state.revealMoveGameId : ""} onChange={this.handleRevealMoveGameIdChange.bind(this)} />
+                  <button onClick={this.handleRevealMove.bind(this)}>Reveal Move</button>
+                </form>
+              </div>
+
+              <div className="cancel-game">
+                <h3>Cancel Open Game</h3>
+                <form>
+                  <input type="text" name="gameId" placeholder="Game ID" value={this.state.cancelGameId ? this.state.cancelGameId : ""} onChange={this.handleCancelGameIdChange.bind(this)} />
+                  <button onClick={this.handleCancelGame.bind(this)}>Cancel Game</button>
+                </form>
               </div>
 
             </div>
