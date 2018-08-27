@@ -28,6 +28,7 @@ class App extends Component {
       wager: null, // In ETH
       newGameMove: "Rock", // "Rock" by default
       newGamePassword: null,
+      cancelGameId: null,
       joinGameId: null,
       joinGameMove: "Rock", // "Rock" by default
       joinGamePassword: null,
@@ -78,9 +79,9 @@ class App extends Component {
             status: data.status.c[0],
             winner: data.winner
           }
+
           if (game.creator !== this.state.account) {
-            let newAvailableGamesArray = this.state.availableGames.concat(game); // Add the new game to a temporary array
-            this.setState({ availableGames: newAvailableGamesArray }); // Replace the state with the new array
+            this.cleanAndUpdateGameArray(game, this.state.availableGames, "availableGames");
           }
         });
 
@@ -100,8 +101,7 @@ class App extends Component {
             status: data.status.c[0],
             winner: data.winner
           }
-          let newMyGamesArray = this.state.myGames.concat(game); // Add the new game to a temporary array
-          this.setState({ myGames: newMyGamesArray }); // Replace the state with the new array
+          this.cleanAndUpdateGameArray(game, this.state.myGames, "myGames");
         });
 
         // Where the user joined a game
@@ -116,8 +116,7 @@ class App extends Component {
             status: data.status.c[0],
             winner: data.winner
           }
-          let newMyGamesArray = this.state.myGames.concat(game); // Add the new game to a temporary array
-          this.setState({ myGames: newMyGamesArray }); // Replace the state with the new array
+          this.cleanAndUpdateGameArray(game, this.state.myGames, "myGames");
         });
 
         // Then get the balance for this account
@@ -139,8 +138,28 @@ class App extends Component {
 
 
   /*
-  <-- State refresher functions and UI loaders -->
+  <-- Utils, state refresher functions, and UI loaders -->
   */
+
+  // Replaces stale event data, such as when a game is created then cancelled in the same session
+  /// @params game is the game object
+  /// @params i.e. array = this.state.availableGames
+  /// @params i.e. stateObject = "availableGames"
+  cleanAndUpdateGameArray(game, stateArray, stateObject) {
+    let index = 0;
+    stateArray.map(currentGame => { // Loop through the array and delete stale data
+      // eslint-disable-next-line
+      if (currentGame.gameId == game.gameId) {
+        stateArray.splice(index, 1); // Delete from array
+      }
+      return index++;
+    });
+
+    // Add the new game to the cleaned array and set the state to the cleaned, updated array
+    const newArray = stateArray.concat(game);
+    const updatedStateObject = { [stateObject]: newArray };
+    this.setState(updatedStateObject);
+  }
 
   getMinimumWager() {
     this.state.contract.minimumWager.call(this.state.account)
@@ -171,6 +190,10 @@ class App extends Component {
 
   handleNewGamePasswordChange(event) {
     this.setState({newGamePassword: event.target.value});
+  }
+
+  handleCancelGameIdChange(event) {
+    this.setState({cancelGameId: event.target.value});
   }
 
   handleJoinGameIdChange(event) {
@@ -222,18 +245,26 @@ class App extends Component {
     this.state.contract.createGame(this.state.newGameMove, this.state.newGamePassword, this.state.wagerInWei, {from: this.state.account, value: this.state.wagerInWei})
     .then((result) => {
       console.log("Game created");
+      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
+    });
+  }
+
+  handleCancelGame(event) {
+    event.preventDefault();
+    this.state.contract.cancelGame(this.state.cancelGameId, {from: this.state.account})
+    .then((result) => {
+      console.log("Game cancelled");
+      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
     });
   }
 
   handleJoinGame(event) {
     event.preventDefault();
-    // Find the game's wager by looking in the availableGames array
     let wager;
-    this.state.availableGames.map(game => {
+    this.state.availableGames.map(game => { // Find the game's wager by looking in the availableGames array
       // eslint-disable-next-line
-      if (game.gameId == this.state.joinGameId) {
+      if (game.gameId == this.state.joinGameId) { // This line was throwing linting errors because it's not ===, which would break it
         wager = game.wager;
-        console.log("1st", wager);
         return null;
       }
       return null;
@@ -243,6 +274,7 @@ class App extends Component {
     this.state.contract.joinGame(this.state.joinGameMove, this.state.joinGamePassword, this.state.joinGameId, {from: this.state.account, value: wagerInWei})
     .then((result) => {
       console.log("Game joined");
+      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
     });
   }
 
@@ -305,7 +337,7 @@ class App extends Component {
                   </select>
                   <input type="password" name="password" placeholder="Password" value={this.state.newGamePassword ? this.state.newGamePassword : ""} onChange={this.handleNewGamePasswordChange.bind(this)} />
                   <input type="text" name="wager" placeholder="Wager (in ETH)" value={this.state.wager ? this.state.wager : ""} onChange={this.handleWagerChange.bind(this)} />
-                  <button onClick={this.handleNewGame.bind(this)}>Create</button>
+                  <button onClick={this.handleNewGame.bind(this)}>Create Game</button>
                 </form>
               </div>
 
@@ -326,7 +358,7 @@ class App extends Component {
                   </select>
                   <input type="password" name="password" placeholder="Password" value={this.state.joinGamePassword ? this.state.joinGamePassword : ""} onChange={this.handleJoinGamePasswordChange.bind(this)} />
                   <input type="text" name="gameId" placeholder="Game ID" value={this.state.joinGameId ? this.state.joinGameId : ""} onChange={this.handleJoinGameIdChange.bind(this)} />
-                  <button onClick={this.handleJoinGame.bind(this)}>Join</button>
+                  <button onClick={this.handleJoinGame.bind(this)}>Join Game</button>
                 </form>
               </div>
 
@@ -335,6 +367,14 @@ class App extends Component {
               <div className="my-games">
                 <h3>My Games</h3>
                 {this.renderMyGames()}
+              </div>
+
+              <div className="cancel-game">
+                <h3>Cancel Open Game</h3>
+                <form>
+                  <input type="text" name="gameId" placeholder="Game ID" value={this.state.cancelGameId ? this.state.cancelGameId : ""} onChange={this.handleCancelGameIdChange.bind(this)} />
+                  <button onClick={this.handleCancelGame.bind(this)}>Cancel Game</button>
+                </form>
               </div>
 
             </div>

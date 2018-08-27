@@ -11,6 +11,10 @@ Rock-paper-scissors is a game where players can be matched up against each other
 If only one player reveals their move by the end of the game's time limit, the revealed player automatically wins regardless of their opponent's unrevealed move. This would happen, for example, if the first player reveals and their opponent sees their move and knows that they've lost, and thus refuses to reveal. In the event that both players reveal and tie, the game ends and both player's wagers are returned to them.
 
 
+### Pre-reqs
+Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truffleframework.com/ganache), and [NPM](https://www.npmjs.com/) installed on your machine. Use Google Chrome as your browser, and ensure you have [MetaMask](https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn?hl=en) installed in it.
+
+
 ### How to set it up
 
 1. Clone this repository to your local machine.
@@ -22,15 +26,20 @@ If only one player reveals their move by the end of the game's time limit, the r
 7. Conduct game actions in the DApp and sign them using MetaMask. If you want to join a game you created, you have to use a different address--this is as simple as adding a new account in MetaMask (no need to use a different private key). Try creating a game, joining using a different account, revealing your moves with both accounts, and verifying that your winning account got paid the prize.
 
 
+#### Troubleshooting compilation / migration / MetaMask
+- If you're getting build problems, try deleting the ./build folder and running `truffle compile` and `truffle migrate` again.
+- If MetaMask is throwing nonce-related errors, go into its settings and hit "Reset Account" to wipe the history. You'll keep the balance and private keys but there won't be anymore interference.
+
+
 ### If you want to review my code
 
-- Game logic is found at ./contracts/RockPaperScissors.sol
-- Front end is defined in ./src/App.js (I used the `truffle react` box)
-- Read ./design_pattern_decisions.md
-- Read ./avoiding_common_attacks.md
+- Game logic is found at contracts/RockPaperScissors.sol
+- Front end is defined in src/App.js (I used `truffle unbox react`)
+- Read design_pattern_decisions.md
+- Read avoiding_common_attacks.md
 
 
-### My stretch goals (if I have time)
+### Roadmap candidates (future work, unprioritized)
 
 - Consider implementing the "Balance Withdrawal" design pattern (increasing safety but sacrificing UX)
 - Deploy the DApp to the Rinkby testnet (and add a deployed_addresses.txt file containing the address)
@@ -39,5 +48,6 @@ If only one player reveals their move by the end of the game's time limit, the r
 - Unit tests for all publicly-callable getter functions
 - Optimize gas costs
 - Make a nicer UI
-- Implement Drizzle
+- Implement Drizzle for state management (instead of me doing it manually)
 - Refactor App.js to modularize components and functions
+- Add event confirmation messages in the front end for nicer UX
