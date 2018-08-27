@@ -14,7 +14,7 @@ contract RockPaperScissors is Ownable {
 
   // Declare global variables
   bool public contractPaused = false;
-  uint public gameIdCounter;
+  uint public gameIdCounter = 1; // We want the first game created to have ID = 1
   uint public minimumWager; // In wei, recommended: 5000000000000000 wei = .005 ether
   uint public gameBlockTimeLimit;
   bytes32 internal emptyStringHash = keccak256('');
@@ -35,7 +35,7 @@ contract RockPaperScissors is Ownable {
   }
 
   // Used by the front end to find open, in-progress, and completed games
-  event GameUpdates(uint gameId, address indexed creator, address indexed challenger, Status indexed status);
+  event GameUpdates(uint gameId, uint wager, address indexed creator, address indexed challenger, Status indexed status, address winner);
 
   // Game objects are identified by their gameId in a mapping called 'games', i.e. games[0] returns the first Game
   mapping (uint => Game) public games;
@@ -128,7 +128,7 @@ contract RockPaperScissors is Ownable {
     /// @dev The game.gameExpirationBlock is set to 0 at game creation and is changed to the real expiration when a challenger joins
     if (block.number >= game.gameExpirationBlock && game.gameExpirationBlock != 0 && game.status != Status.Expired) {
       game.status = Status.Expired;
-      emit GameUpdates(game.gameId, game.creator, game.challenger, Status.Expired);
+      emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.Expired, 0x0);
 
       // If only the challenger revealed, pay them
       if (
@@ -179,7 +179,7 @@ contract RockPaperScissors is Ownable {
       challengerMove: '',
       status: Status.Open
     });
-    emit GameUpdates(gameIdCounter, msg.sender, 0x0, Status.Open);
+    emit GameUpdates(gameIdCounter, _wager, msg.sender, 0x0, Status.Open, 0x0);
     gameIdCounter = gameIdCounter.add(1); // Prep the counter for the next game
   }
 
@@ -192,11 +192,11 @@ contract RockPaperScissors is Ownable {
     );
     game.status = Status.Cancelled;
     game.creator.transfer(game.wager); /// @dev Called after state changes to prevent recursive call attacks
-    emit GameUpdates(game.gameId, msg.sender, 0x0, Status.Cancelled);
+    emit GameUpdates(game.gameId, game.wager, msg.sender, 0x0, Status.Cancelled, 0x0);
   }
 
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
-  function joinGame(uint _gameId, string _move, string _password) public payable checkIfPaused() validateMove(_move) validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
+  function joinGame(string _move, string _password, uint _gameId) public payable checkIfPaused() validateMove(_move) validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
     Game storage game = games[_gameId]; // Too bad Solidity doesn't let you define local variables in function arguments like JavaScript
     require(
       game.creator != msg.sender && // You can't challange yourself
@@ -206,11 +206,11 @@ contract RockPaperScissors is Ownable {
     game.challenger = msg.sender;
     game.gameExpirationBlock = block.number.add(gameBlockTimeLimit);
     game.challengerEncryptedMove = keccak256(_move, msg.sender, _password); // Encrypted using the user's password
-    emit GameUpdates(game.gameId, game.creator, msg.sender, Status.AwaitingReveals);
+    emit GameUpdates(game.gameId, game.wager, game.creator, msg.sender, Status.AwaitingReveals, 0x0);
   }
 
   // Allow players to reveal their moves by providing their password and repeating their move
-  function revealMove(uint _gameId, string _move, string _password) public checkIfPaused() checkGameExpiration(_gameId) validateMove(_move) validatePassword(_password) {
+  function revealMove(string _move, string _password, uint _gameId) public checkIfPaused() checkGameExpiration(_gameId) validateMove(_move) validatePassword(_password) {
     Game storage game = games[_gameId];
     require(
       game.status == Status.AwaitingReveals ||
@@ -222,12 +222,12 @@ contract RockPaperScissors is Ownable {
       require(game.creatorEncryptedMove == keccak256(_move, msg.sender, _password));
       game.creatorMove = _move;
       game.status = Status.AwaitingChallengerReveal;
-      emit GameUpdates(game.gameId, game.creator, game.challenger, Status.AwaitingChallengerReveal);
+      emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.AwaitingChallengerReveal, 0x0);
     } else if (msg.sender == game.challenger) { // If the challenger reveals
       require(game.challengerEncryptedMove == keccak256(_move, msg.sender, _password));
       game.challengerMove = _move;
       game.status = Status.AwaitingCreatorReveal;
-      emit GameUpdates(game.gameId, game.creator, game.challenger, Status.AwaitingCreatorReveal);
+      emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.AwaitingCreatorReveal, 0x0);
     } else { // Return the poor stranger his/her remaining gas
       revert();
     }
@@ -260,7 +260,7 @@ contract RockPaperScissors is Ownable {
       revert();
     }
     game.status = Status.Finished;
-    emit GameUpdates(game.gameId, game.creator, game.challenger, Status.Finished);
+    emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.Finished, 0x0);
   }
 
 }

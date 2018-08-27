@@ -40,3 +40,4 @@ If only one player reveals their move by the end of the game's time limit, the r
 - Optimize gas costs
 - Make a nicer UI
 - Implement Drizzle
+- Refactor App.js to modularize components and functions
