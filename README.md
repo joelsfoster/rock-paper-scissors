@@ -39,3 +39,4 @@ If only one player reveals their move by the end of the game's time limit, the r
 - Unit tests for all publicly-callable getter functions
 - Optimize gas costs
 - Make a nicer UI
+- Implement Drizzle

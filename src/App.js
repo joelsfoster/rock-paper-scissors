@@ -30,7 +30,8 @@ class App extends Component {
       newGamePassword: null,
       joinGameId: null,
       joinGameMove: "Rock", // "Rock" by default
-      joinGamePassword: null
+      joinGamePassword: null,
+      myGames: [] // All games where the user is/was either the creator or challenger
     };
   }
 
@@ -63,7 +64,25 @@ class App extends Component {
         this.setState({ contract: instance, contractAddress: instance.address, account: accounts[0] });
         this.getMinimumWager();
       }).then((result) => {
-        this.refreshBalance(); // Then get the balance for this account
+
+        // Set event listeners to grab game history
+        this.state.contract.GameUpdates({creator: this.state.account}, {fromBlock: 0, toBlock: 'latest'})
+        .watch((error, result) => {
+
+          const data = result.args;
+          const game = {
+            gameId: data.gameId.c[0],
+            creator: data.creator,
+            challenger: data.challenger,
+            status: data.status.c[0]
+          };
+
+          let newMyGamesArray = this.state.myGames.concat(game);
+          this.setState({ myGames: newMyGamesArray });
+
+        });
+
+        this.refreshBalance(); // Lastly, get the balance for this account
       });
 
       // Constantly be checking if the account has changed, and refresh state if so
@@ -71,8 +90,7 @@ class App extends Component {
         const currentAccount = this.state.web3.eth.accounts[0];
         if (currentAccount !== this.state.account) {
           this.setState({ account: currentAccount });
-          this.refreshBalance();
-          // window.location.reload();
+          window.location.reload();
         }
       }, 100);
     });
@@ -135,29 +153,14 @@ class App extends Component {
     this.state.contract.createGame(this.state.newGameMove, this.state.newGamePassword, this.state.wagerInWei, {from: this.state.account, value: this.state.wagerInWei})
     .then((result) => {
       console.log("Game created");
-      // Retreive my game
     });
-
-    /*
-    const contract = this.state.contract;
-    const account = this.state.account;
-
-    let value = 3;
-
-    contract.createGame(value, {from: account})
-    .then(result => {
-      return contract.get.call()
-    }).then(result => {
-      return this.setState({storageValue: result.c[0]})
-    })
-    */
     event.preventDefault();
   }
 
 
   // "Tab" window for New Game, Join Game, My Games (with Cancel Game button), Reveal Move
   // Ability to join game by by entering in UI fields and sending ether
-  // Ability to look at ongoing and finished games (need to index!!!)
+  // Ability to look at ongoing and finished games
   // Ability to reveal moves in ongoing games
 
   render() {
