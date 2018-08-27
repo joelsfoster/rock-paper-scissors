@@ -8,6 +8,17 @@ import './css/oswald.css';
 import './css/open-sans.css';
 import './css/pure-min.css';
 import './App.css';
+import Intro from './components/Intro';
+import Rules from './components/Rules';
+import Info from './components/Info';
+import NewGame from './components/NewGame';
+import CancelGame from './components/CancelGame';
+import JoinGame from './components/JoinGame';
+import RevealMove from './components/RevealMove';
+import DividerLine from './components/DividerLine';
+import AvailableGames from './components/AvailableGames';
+import MyGames from './components/MyGames';
+
 
 class App extends Component {
 
@@ -254,11 +265,17 @@ class App extends Component {
             Status: {this.gameStatusReference[game.status]}<br/>
             Creator: {game.creator}<br/>
             Challenger: {game.challenger == "0x0000000000000000000000000000000000000000" ? "" : game.challenger}<br/>
-            Winner: {game.winner == "0x0000000000000000000000000000000000000000" ? "" : game.winner}
+            Winner: {this.displayWinner(game)}
           </p>
         </div>
       )
     });
+  }
+
+  displayWinner(game) {
+    if (game.winner == "0x0000000000000000000000000000000000000000" && game.status == 5) { return "Tie" }
+    else if (game.winner == "0x0000000000000000000000000000000000000000") { return "" }
+    else { return game.winner }
   }
 
 
@@ -313,6 +330,11 @@ class App extends Component {
   }
 
 
+  /*
+  <-- Render the app -->
+  */
+
+
   render() {
     return (
       <div className="App">
@@ -323,102 +345,47 @@ class App extends Component {
         <main className="container">
           <div className="pure-g">
             <div className="pure-u-1-1">
-              <div className="intro">
-              <h1>Rock Paper Scissors</h1>
-                <p>
-                  Win money from strangers! This blockchain-based rock-paper-scissors game is provably fair and guarantees immediate payouts.
-                  See the code <a href='https://github.com/joelsfoster/rock-paper-scissors'>here</a>.
-                </p>
-              </div>
-
-              <div className="rules">
-                <h2>Rules</h2>
-                <ol>
-                  <li>Create a game by setting a wager. If you win, your opponent will pay you that wager. If you lose, you'll pay them.</li>
-                  <li>You and your opponent each submit a password-encrypted move (rock, paper, or scissors) that no human or computer is capable of reverse-encrypting.</li>
-                  <li>Make sure you remember your move! You will need to re-enter it later.</li>
-                  <li>Once both players submit their moves, their wagers are locked in the game.</li>
-                  <li>Both players must then reveal their moves by entering their password and move to prove that it matches their original one.</li>
-                  <li>You have 24 hours to complete the game.</li>
-                  <li>If only one player has revealed their move by the game's expiration, they automatically win regardless of their opponent's move.</li>
-                  <li>If neither player reveals their move, or if both players reveal a tie, both players get their wagers back.</li>
-                  <li>If you created a game and no one joins it, you can always cancel that game and get your wager back.</li>
-                </ol>
-              </div>
-
-              <div className="info">
-                <p>Your ETH balance and address: {this.state.balance} ETH | {this.state.account}</p>
-                <p>
-                  This game's contract is deployed at: {this.state.contractAddress}
-                  <br/><i>(Ensure this address matches your MetaMask's "send transaction" confirmations!)</i>
-                </p>
-              </div>
-
-              <div className="new-game">
-                <h3>Create New Game</h3>
-                <p>Minimum wager: {this.state.minimumWager} ETH</p>
-                <form>
-                  <select onChange={this.handleNewGameMoveChange.bind(this)}>
-                    <option value="Rock">Rock</option>
-                    <option value="Paper">Paper</option>
-                    <option value="Scissors">Scissors</option>
-                  </select>
-                  <input type="password" name="password" placeholder="Password" value={this.state.newGamePassword ? this.state.newGamePassword : ""} onChange={this.handleNewGamePasswordChange.bind(this)} />
-                  <input type="text" name="wager" placeholder="Wager (in ETH)" value={this.state.wager ? this.state.wager : ""} onChange={this.handleWagerChange.bind(this)} />
-                  <button onClick={this.handleNewGame.bind(this)}>Create Game</button>
-                </form>
-              </div>
-
-              <hr style={{ color: "lightgrey", backgroundColor: "lightgrey", height: .1 }}/>
-
-              <div className="available-games">
-                <h3>Available Games</h3>
-                {this.renderAvailableGames()}
-              </div>
-
-              <div className="join-game">
-                <h3>Join Game</h3>
-                <form>
-                  <select onChange={this.handleJoinGameMoveChange.bind(this)}>
-                    <option value="Rock">Rock</option>
-                    <option value="Paper">Paper</option>
-                    <option value="Scissors">Scissors</option>
-                  </select>
-                  <input type="password" name="password" placeholder="Password" value={this.state.joinGamePassword ? this.state.joinGamePassword : ""} onChange={this.handleJoinGamePasswordChange.bind(this)} />
-                  <input type="text" name="gameId" placeholder="Game ID" value={this.state.joinGameId ? this.state.joinGameId : ""} onChange={this.handleJoinGameIdChange.bind(this)} />
-                  <button onClick={this.handleJoinGame.bind(this)}>Join Game</button>
-                </form>
-              </div>
-
-              <hr style={{ color: "lightgrey", backgroundColor: "lightgrey", height: .1 }}/>
-
-              <div className="my-games">
-                <h3>My Games</h3>
-                {this.renderMyGames()}
-              </div>
-
-              <div className="reveal-move">
-                <h3>Reveal Move</h3>
-                <form>
-                  <select onChange={this.handleRevealMoveChange.bind(this)}>
-                    <option value="Rock">Rock</option>
-                    <option value="Paper">Paper</option>
-                    <option value="Scissors">Scissors</option>
-                  </select>
-                  <input type="password" name="password" placeholder="Password" value={this.state.revealMovePassword ? this.state.revealMovePassword : ""} onChange={this.handleRevealMovePasswordChange.bind(this)} />
-                  <input type="text" name="gameId" placeholder="Game ID" value={this.state.revealMoveGameId ? this.state.revealMoveGameId : ""} onChange={this.handleRevealMoveGameIdChange.bind(this)} />
-                  <button onClick={this.handleRevealMove.bind(this)}>Reveal Move</button>
-                </form>
-              </div>
-
-              <div className="cancel-game">
-                <h3>Cancel Open Game</h3>
-                <form>
-                  <input type="text" name="gameId" placeholder="Game ID" value={this.state.cancelGameId ? this.state.cancelGameId : ""} onChange={this.handleCancelGameIdChange.bind(this)} />
-                  <button onClick={this.handleCancelGame.bind(this)}>Cancel Game</button>
-                </form>
-              </div>
-
+              <Intro />
+              <Rules />
+              <Info
+                balance={this.state.balance}
+                account={this.state.account}
+                contractAddress={this.state.contractAddress}
+              />
+              <NewGame
+                minimumWager={this.state.minimumWager}
+                wager={this.state.wager}
+                newGamePassword={this.state.newGamePassword}
+                handleNewGameMoveChange={this.handleNewGameMoveChange.bind(this)}
+                handleNewGamePasswordChange={this.handleNewGamePasswordChange.bind(this)}
+                handleWagerChange={this.handleWagerChange.bind(this)}
+                handleNewGame={this.handleNewGame.bind(this)}
+              />
+              <DividerLine />
+              <AvailableGames renderAvailableGames={this.renderAvailableGames()}/>
+              <JoinGame
+                joinGamePassword={this.state.joinGamePassword}
+                joinGameId={this.state.joinGameId}
+                handleJoinGameMoveChange={this.handleJoinGameMoveChange.bind(this)}
+                handleJoinGamePasswordChange={this.handleJoinGamePasswordChange.bind(this)}
+                handleJoinGameIdChange={this.handleJoinGameIdChange.bind(this)}
+                handleJoinGame={this.handleJoinGame.bind(this)}
+              />
+              <DividerLine />
+              <MyGames renderMyGames={this.renderMyGames()}/>
+              <RevealMove
+                revealMovePassword={this.state.revealMovePassword}
+                revealMoveGameId={this.state.revealMoveGameId}
+                handleRevealMoveChange={this.handleRevealMoveChange.bind(this)}
+                handleRevealMovePasswordChange={this.handleRevealMovePasswordChange.bind(this)}
+                handleRevealMoveGameIdChange={this.handleRevealMoveGameIdChange.bind(this)}
+                handleRevealMove={this.handleRevealMove.bind(this)}
+              />
+              <CancelGame
+                cancelGameId={this.state.cancelGameId}
+                handleCancelGameIdChange={this.handleCancelGameIdChange.bind(this)}
+                handleCancelGame={this.handleCancelGame.bind(this)}
+              />
             </div>
           </div>
         </main>
