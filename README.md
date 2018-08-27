@@ -50,4 +50,4 @@ Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truf
 - Make a nicer UI
 - Implement Drizzle for state management (instead of me doing it manually)
 - Refactor App.js to modularize components and functions
-- Add event confirmation messages in the front end for nicer UX
+- Add event confirmation and error messages in the front end for nicer UX

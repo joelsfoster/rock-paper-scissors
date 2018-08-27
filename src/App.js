@@ -28,12 +28,16 @@ class App extends Component {
       account: null,
       balance: null,
       wager: null, // In ETH
+      wagerInWei: null,
       newGameMove: "Rock", // "Rock" by default
       newGamePassword: null,
       cancelGameId: null,
       joinGameId: null,
       joinGameMove: "Rock", // "Rock" by default
       joinGamePassword: null,
+      revealMove: "Rock", // "Rock" by default
+      revealMovePassword: null,
+      revealMoveGameId: null,
       availableGames: [], // All open games where the user is not the creator
       myGames: [] // All games where the user is/was either the creator or challenger
     };
@@ -189,12 +193,6 @@ class App extends Component {
     });
   }
 
-  handleWagerChange(event) {
-    this.setState({wager: event.target.value});
-    const wagerInWei = this.state.web3.toWei(event.target.value);
-    this.setState({wagerInWei: wagerInWei});
-  }
-
   handleNewGameMoveChange(event) {
     this.setState({newGameMove: event.target.value});
   }
@@ -203,20 +201,38 @@ class App extends Component {
     this.setState({newGamePassword: event.target.value});
   }
 
+  handleWagerChange(event) {
+    this.setState({wager: event.target.value});
+    const wagerInWei = this.state.web3.toWei(event.target.value);
+    this.setState({wagerInWei: wagerInWei});
+  }
+
   handleCancelGameIdChange(event) {
     this.setState({cancelGameId: event.target.value});
+  }
+
+  handleJoinGameMoveChange(event) {
+    this.setState({joinGameMove: event.target.value});
+  }
+
+  handleJoinGamePasswordChange(event) {
+    this.setState({joinGamePassword: event.target.value});
   }
 
   handleJoinGameIdChange(event) {
     this.setState({joinGameId: event.target.value});
   }
 
-  handleJoinGameMoveChange(event) {
-    this.setState({newGameMove: event.target.value});
+  handleRevealMoveChange(event) {
+    this.setState({revealMove: event.target.value});
   }
 
-  handleJoinGamePasswordChange(event) {
-    this.setState({joinGamePassword: event.target.value});
+  handleRevealMovePasswordChange(event) {
+    this.setState({revealMovePassword: event.target.value});
+  }
+
+  handleRevealMoveGameIdChange(event) {
+    this.setState({revealMoveGameId: event.target.value});
   }
 
   renderAvailableGames() {
@@ -254,7 +270,7 @@ class App extends Component {
   handleNewGame(event) {
     event.preventDefault();
     this.state.contract.createGame(this.state.newGameMove, this.state.newGamePassword, this.state.wagerInWei, {from: this.state.account, value: this.state.wagerInWei})
-    .then((result) => {
+    .then((error, result) => {
       console.log("Game created");
       // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
     });
@@ -263,7 +279,7 @@ class App extends Component {
   handleCancelGame(event) {
     event.preventDefault();
     this.state.contract.cancelGame(this.state.cancelGameId, {from: this.state.account})
-    .then((result) => {
+    .then((error, result) => {
       console.log("Game cancelled");
       // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
     });
@@ -282,7 +298,7 @@ class App extends Component {
 
     const wagerInWei = this.state.web3.toWei(wager, 'ether');
     this.state.contract.joinGame(this.state.joinGameMove, this.state.joinGamePassword, this.state.joinGameId, {from: this.state.account, value: wagerInWei})
-    .then((result) => {
+    .then((error, result) => {
       console.log("Game joined");
       // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
     });
@@ -290,12 +306,12 @@ class App extends Component {
 
   handleRevealMove(event) {
     event.preventDefault();
-
+    this.state.contract.revealMove(this.state.revealMove, this.state.revealMovePassword, this.state.revealMoveGameId, {from: this.state.account})
+    .then((error, result) => {
+      console.log("Move revealed");
+      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
+    });
   }
-
-  // Ability to reveal moves in ongoing games
-  // Add loading GIF
-
 
 
   render() {
@@ -311,7 +327,7 @@ class App extends Component {
               <div className="intro">
               <h1>Rock Paper Scissors</h1>
                 <p>
-                  Win money from strangers! This blockchain-based rock-paper-scissors game is provably fair and guarantees payouts!
+                  Win money from strangers! This blockchain-based rock-paper-scissors game is provably fair and guarantees immediate payouts.
                   See the code <a href='https://github.com/joelsfoster/rock-paper-scissors'>here</a>.
                 </p>
               </div>
@@ -321,6 +337,7 @@ class App extends Component {
                 <ol>
                   <li>Create a game by setting a wager. If you win, your opponent will pay you that wager. If you lose, you'll pay them.</li>
                   <li>You and your opponent each submit a password-encrypted move (rock, paper, or scissors) that no human or computer is capable of reverse-encrypting.</li>
+                  <li>Make sure you remember your move! You will need to re-enter it later.</li>
                   <li>Once both players submit their moves, their wagers are locked in the game.</li>
                   <li>Both players must then reveal their moves by entering their password and move to prove that it matches their original one.</li>
                   <li>You have 24 hours to complete the game.</li>
@@ -379,6 +396,20 @@ class App extends Component {
               <div className="my-games">
                 <h3>My Games</h3>
                 {this.renderMyGames()}
+              </div>
+
+              <div className="reveal-move">
+                <h3>Reveal Move</h3>
+                <form>
+                  <select onChange={this.handleRevealMoveChange.bind(this)}>
+                    <option value="Rock">Rock</option>
+                    <option value="Paper">Paper</option>
+                    <option value="Scissors">Scissors</option>
+                  </select>
+                  <input type="password" name="password" placeholder="Password" value={this.state.revealMovePassword ? this.state.revealMovePassword : ""} onChange={this.handleRevealMovePasswordChange.bind(this)} />
+                  <input type="text" name="gameId" placeholder="Game ID" value={this.state.revealMoveGameId ? this.state.revealMoveGameId : ""} onChange={this.handleRevealMoveGameIdChange.bind(this)} />
+                  <button onClick={this.handleRevealMove.bind(this)}>Reveal Move</button>
+                </form>
               </div>
 
               <div className="cancel-game">
