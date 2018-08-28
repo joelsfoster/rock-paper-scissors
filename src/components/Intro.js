@@ -9,6 +9,7 @@ export default class Intro extends Component {
           Win money from strangers! This blockchain-based rock-paper-scissors game is provably fair and guarantees immediate payouts.
           See the code <a href='https://github.com/joelsfoster/rock-paper-scissors'>here</a>.
         </p>
+        <p><h4><i>To play, first log into your MetaMask browser extension.</i></h4></p>
       </div>
     )
   }
