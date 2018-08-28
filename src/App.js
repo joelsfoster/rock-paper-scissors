@@ -99,7 +99,7 @@ class App extends Component {
           const data = result.args;
           const game = {
             gameId: data.gameId.c[0],
-            wager: this.state.web3.fromWei(data.wager, 'ether').c[0], // Converting BigNumber wei into number eth
+            wager: this.state.web3.fromWei(data.wager, 'ether').toNumber(), // BigNumber wei -> BigNumber eth -> Number eth
             creator: data.creator,
             challenger: data.challenger,
             status: data.status.c[0],
@@ -121,7 +121,7 @@ class App extends Component {
           const data = result.args;
           const game = {
             gameId: data.gameId.c[0],
-            wager: this.state.web3.fromWei(data.wager, 'ether').c[0], // Converting BigNumber wei into number eth
+            wager: this.state.web3.fromWei(data.wager, 'ether').toNumber(), // BigNumber wei -> BigNumber eth -> Number eth
             creator: data.creator,
             challenger: data.challenger,
             status: data.status.c[0],
@@ -136,7 +136,7 @@ class App extends Component {
           const data = result.args;
           const game = {
             gameId: data.gameId.c[0],
-            wager: this.state.web3.fromWei(data.wager, 'ether').c[0], // Converting BigNumber wei into number eth
+            wager: this.state.web3.fromWei(data.wager, 'ether').toNumber(), // BigNumber wei -> BigNumber eth -> Number eth
             creator: data.creator,
             challenger: data.challenger,
             status: data.status.c[0],
