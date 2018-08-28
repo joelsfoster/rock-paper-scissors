@@ -1,7 +1,7 @@
 # Rock Paper Scissors - ConsenSys Academy final project
 
 
-*Disclaimer: I actually had no idea https://github.com/SCBuergel/ethereum-rps existed before I did this project. I certainly like my implementation better.*
+*Disclaimer: I actually had no idea [this guy's Ethereum rock-paper-scissors game](https://github.com/SCBuergel/ethereum-rps) existed before I did this project. I certainly like my implementation better.*
 
 
 ### What does this project do?
@@ -19,7 +19,7 @@ Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truf
 
 1. Clone this repository to your local machine.
 2. Open up Ganache (desktop or command line) and configure it to hostname = 127.0.0.1 and port = 8545 to get your local blockchain up and running. Copy the mnemonic provided for later.
-3. In terminal, navigate to the cloned directory and use `truffle compile`, then `truffle migrate` to deploy the DApp to your local blockchain. *Note that you will see a number of compilation warnings which all have to do with the keccak256() function complaining about taking in strings. Ignore these.*
+3. In terminal, navigate to the cloned directory and use `truffle compile`, then `truffle migrate` to deploy the DApp to your local blockchain. *Note that you will see a number of compilation warnings which all have to do with the keccak256() function complaining about taking in strings. [Ignore them](https://ethereum.stackexchange.com/questions/50592/what-does-warning-this-function-only-accepts-a-single-bytes-argument-please).*
 4. (Optional) While you're still in this directory, use `truffle test` to see that all the tests are working. Note that this will cost a lot of gas because the contract will be redeployed for each test.
 5. Use `npm run start` to launch the front end. It will open to localhost:3000, which is connected to your local blockchain at 127.0.0.1:8545.
 6. Take the mnemonic you copied from Ganache in step 2 and open MetaMask in your browser, copying the mnemonic there. In MetaMask, set your blockchain network to Localhost 8545, which will refresh the page.
