@@ -12,14 +12,14 @@ If only one player reveals their move by the end of the game's time limit, the r
 
 
 ### Pre-reqs
-Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truffleframework.com/ganache), and [NPM](https://www.npmjs.com/) installed on your machine. Use Google Chrome as your browser, and ensure you have [MetaMask](https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn?hl=en) installed in it.
+Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truffleframework.com/ganache), and [Node.js](https://nodejs.org/) and [NPM](https://www.npmjs.com/) installed on your machine. Use Google Chrome as your browser, and ensure you have the [MetaMask](https://chrome.google.com/webstore/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn?hl=en) extension installed in it.
 
 
 ### How to set it up
 
 1. Clone this repository to your local machine.
 2. Open up Ganache (desktop or command line) and configure it to hostname = 127.0.0.1 and port = 8545 to get your local blockchain up and running. Copy the mnemonic provided for later.
-3. In terminal, navigate to the cloned directory and use `truffle compile`, then `truffle migrate` to deploy the DApp to your local blockchain. *Note that you will see a number of compilation warnings which all have to do with the keccak256() function complaining about taking in strings. [Ignore them](https://ethereum.stackexchange.com/questions/50592/what-does-warning-this-function-only-accepts-a-single-bytes-argument-please).*
+3. In terminal, navigate to the cloned directory and use `npm install`, then `truffle compile`, then `truffle migrate` to deploy the DApp to your local blockchain. *Note that you will see a number of compilation warnings which all have to do with the keccak256() function complaining about taking in strings. [Ignore them](https://ethereum.stackexchange.com/questions/50592/what-does-warning-this-function-only-accepts-a-single-bytes-argument-please).*
 4. (Optional) While you're still in this directory, use `truffle test` to see that all the tests are working. Note that this will cost a lot of gas because the contract will be redeployed for each test.
 5. Use `npm run start` to launch the front end. It will open to localhost:3000, which is connected to your local blockchain at 127.0.0.1:8545.
 6. Take the mnemonic you copied from Ganache in step 2 and open MetaMask in your browser, copying the mnemonic there. In MetaMask, set your blockchain network to Localhost 8545, which will refresh the page.
@@ -28,7 +28,7 @@ Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truf
 
 #### Troubleshooting compilation / migration / MetaMask
 - If you're getting build problems, try deleting the ./build folder and running `truffle compile` and `truffle migrate` again.
-- If MetaMask is throwing nonce-related errors, go into its settings and hit "Reset Account" to wipe the history. You'll keep the balance and private keys but there won't be anymore interference.
+- If MetaMask is throwing nonce-related errors, go into its settings and hit "Reset Account" to wipe the history / clear cache. You'll keep the balance and private keys but there won't be anymore interference.
 
 
 ### If you want to review my code
@@ -51,3 +51,4 @@ Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truf
 - Implement Drizzle for state management (instead of me doing it manually)
 - Refactor App.js to modularize functions
 - Add event confirmation and error messages in the front end for nicer UX
+- Push front end files to IPFS

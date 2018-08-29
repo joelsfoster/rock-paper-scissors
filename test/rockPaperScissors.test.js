@@ -10,7 +10,7 @@ contract('RockPaperScissors', async (accounts) => {
 
     /// @dev Before each test, instantiate new contract with constructor variable (to avoid running out of gas)
     beforeEach(async () => {
-      rockPaperScissors = await RockPaperScissors.new(5000000000000000);
+      rockPaperScissors = await RockPaperScissors.new(5000000000000000); // minimumWager (in wei)
     });
 
 
@@ -51,10 +51,10 @@ contract('RockPaperScissors', async (accounts) => {
 
       await rockPaperScissors.createGame(_move, _password, _wager, {from: alice, value: _msgvalue});
       const gameIdCounter = await rockPaperScissors.gameIdCounter();
-      const gameId = gameIdCounter - 1;
+      const gameId = gameIdCounter;
 
       // After a game is created, retreive its creator
-      const game = await rockPaperScissors.games(0);
+      const game = await rockPaperScissors.games(gameId);
       const creator = game[3]; // The 4th item returned in the array
       const expected = alice;
       assert.equal(creator, expected);
@@ -69,7 +69,7 @@ contract('RockPaperScissors', async (accounts) => {
 
       await rockPaperScissors.createGame(_move, _password, _wager, {from: alice, value: _msgvalue});
       const gameIdCounter = await rockPaperScissors.gameIdCounter.call();
-      const _gameId = gameIdCounter - 1;
+      const _gameId = gameIdCounter;
 
       // After a game is created, cancel it, then verify its status is cancelled
       await rockPaperScissors.cancelGame(_gameId, {from: alice});
@@ -91,10 +91,10 @@ contract('RockPaperScissors', async (accounts) => {
 
       await rockPaperScissors.createGame(_creatorMove, _creatorPassword, _wager, {from: alice, value: _creatorMsgvalue});
       const gameIdCounter = await rockPaperScissors.gameIdCounter.call();
-      const _gameId = gameIdCounter - 1;
+      const _gameId = gameIdCounter;
 
       // After a game is created, join it using a different address, and verify by retrieving the challengers address
-      await rockPaperScissors.joinGame(_gameId, _challengerMove, _challengerPassword, {from: bob, value: _challengerMsgvalue});
+      await rockPaperScissors.joinGame(_challengerMove, _challengerPassword, _gameId, {from: bob, value: _challengerMsgvalue});
       const game = await rockPaperScissors.games(_gameId);
       const challenger = game[4]; // The 5th item returned in the array
       const expected = bob;
@@ -113,11 +113,11 @@ contract('RockPaperScissors', async (accounts) => {
 
       await rockPaperScissors.createGame(_creatorMove, _creatorPassword, _wager, {from: alice, value: _creatorMsgvalue});
       const gameIdCounter = await rockPaperScissors.gameIdCounter.call();
-      const _gameId = gameIdCounter - 1;
+      const _gameId = gameIdCounter;
 
       // After the game is created and joined, the challenger reveals his move, then verify by retrieving it
-      await rockPaperScissors.joinGame(_gameId, _challengerMove, _challengerPassword, {from: bob, value: _challengerMsgvalue});
-      await rockPaperScissors.revealMove(_gameId, _challengerMove, _challengerPassword, {from: bob});
+      await rockPaperScissors.joinGame(_challengerMove, _challengerPassword, _gameId, {from: bob, value: _challengerMsgvalue});
+      await rockPaperScissors.revealMove(_challengerMove, _challengerPassword, _gameId, {from: bob});
       const game = await rockPaperScissors.games(_gameId);
       const challengerMove = game[9]; // The 10th item returned in the array
       const expected = _challengerMove;
