@@ -1,7 +1,6 @@
 {
   "name": "rock-paper-scissors",
   "version": "1.0.0",
-  "private": true,
   "description": "ConsenSys Academy final project",
   "main": "truffle.js",
   "directories": {

@@ -273,7 +273,7 @@ class App extends Component {
   }
 
   displayWinner(game) {
-    if (game.winner == "0x0000000000000000000000000000000000000000" && game.status == 5) { return "Tie" }
+    if (game.winner == "0x0000000000000000000000000000000000000000" && game.status == 5) { return "Tie" } // game.status = Finished
     else if (game.winner == "0x0000000000000000000000000000000000000000") { return "" }
     else { return game.winner }
   }

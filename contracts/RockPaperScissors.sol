@@ -14,7 +14,7 @@ contract RockPaperScissors is Ownable {
 
   // Declare global variables
   bool public contractPaused = false;
-  uint public gameIdCounter;
+  uint public gameIdCounter = 0;
   uint public minimumWager; // In wei, recommended: 5000000000000000 wei = .005 ether
   uint public gameBlockTimeLimit;
   bytes32 internal emptyStringHash = keccak256('');
@@ -63,7 +63,6 @@ contract RockPaperScissors is Ownable {
 
   // When the contract is deployed, set the owner and the global variables and seed the moveWinsAgainst mapping
   constructor(uint _minimumWager) public {
-    gameIdCounter = 1; // We want the first game created to have ID = 1
     minimumWager = _minimumWager; // In wei (1 eth = 1000000000000000000 wei)
     gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
     seedMoveWinsAgainst();
@@ -166,6 +165,7 @@ contract RockPaperScissors is Ownable {
 
   // Players can create a game by submitting their wager, using a password to encrypt their move
   function createGame(string _move, string _password, uint _wager) public payable checkIfPaused() validateMove(_move) validatePassword(_password) validateWager(_wager) returnExtraPayment(_wager) {
+    gameIdCounter = gameIdCounter.add(1); // The first game's ID will be 1
     games[gameIdCounter] = Game({ // Create a new game
       gameId: gameIdCounter,
       wager: _wager,
@@ -180,7 +180,6 @@ contract RockPaperScissors is Ownable {
       status: Status.Open
     });
     emit GameUpdates(gameIdCounter, _wager, msg.sender, 0x0, Status.Open, 0x0);
-    gameIdCounter = gameIdCounter.add(1); // Prep the counter for the next game
   }
 
   // Players can cancel their open game and get their wager deposits back
