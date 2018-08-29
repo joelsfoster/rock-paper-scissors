@@ -37,6 +37,12 @@ contract RockPaperScissors is Ownable {
   // Used by the front end to find open, in-progress, and completed games
   event GameUpdates(uint gameId, uint wager, address indexed creator, address indexed challenger, Status indexed status, address winner);
 
+  // Event emitter Helper function
+  function emitGameUpdates(uint gameId) internal {
+    game = games[gameId];
+    emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, game.status, game.winner);
+  }
+
   // Game objects are identified by their gameId in a mapping called 'games', i.e. games[0] returns the first Game
   mapping (uint => Game) public games;
 
@@ -127,7 +133,7 @@ contract RockPaperScissors is Ownable {
     /// @dev The game.gameExpirationBlock is set to 0 at game creation and is changed to the real expiration when a challenger joins
     if (block.number >= game.gameExpirationBlock && game.gameExpirationBlock != 0 && game.status != Status.Expired) {
       game.status = Status.Expired;
-      emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.Expired, 0x0);
+      emitGameUpdates(game.gameId);
 
       // If only the challenger revealed, pay them
       if (
@@ -179,7 +185,7 @@ contract RockPaperScissors is Ownable {
       challengerMove: '',
       status: Status.Open
     });
-    emit GameUpdates(gameIdCounter, _wager, msg.sender, 0x0, Status.Open, 0x0);
+    emitGameUpdates(gameIdCounter);
   }
 
   // Players can cancel their open game and get their wager deposits back
@@ -191,7 +197,7 @@ contract RockPaperScissors is Ownable {
     );
     game.status = Status.Cancelled;
     game.creator.transfer(game.wager); /// @dev Called after state changes to prevent recursive call attacks
-    emit GameUpdates(game.gameId, game.wager, msg.sender, 0x0, Status.Cancelled, 0x0);
+    emitGameUpdates(game.gameId);
   }
 
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
@@ -205,7 +211,7 @@ contract RockPaperScissors is Ownable {
     game.challenger = msg.sender;
     game.gameExpirationBlock = block.number.add(gameBlockTimeLimit);
     game.challengerEncryptedMove = keccak256(_move, msg.sender, _password); // Encrypted using the user's password
-    emit GameUpdates(game.gameId, game.wager, game.creator, msg.sender, Status.AwaitingReveals, 0x0);
+    emitGameUpdates(game.gameId);
   }
 
   // Allow players to reveal their moves by providing their password and repeating their move
@@ -221,12 +227,12 @@ contract RockPaperScissors is Ownable {
       require(game.creatorEncryptedMove == keccak256(_move, msg.sender, _password));
       game.creatorMove = _move;
       game.status = Status.AwaitingChallengerReveal;
-      emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.AwaitingChallengerReveal, 0x0);
+      emitGameUpdates(game.gameId);
     } else if (msg.sender == game.challenger) { // If the challenger reveals
       require(game.challengerEncryptedMove == keccak256(_move, msg.sender, _password));
       game.challengerMove = _move;
       game.status = Status.AwaitingCreatorReveal;
-      emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.AwaitingCreatorReveal, 0x0);
+      emitGameUpdates(game.gameId);
     } else { // Return the poor stranger his/her remaining gas
       revert();
     }
@@ -259,7 +265,7 @@ contract RockPaperScissors is Ownable {
       revert();
     }
     game.status = Status.Finished;
-    emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.Finished, game.winner);
+    emitGameUpdates(game.gameId);    
   }
 
 }
