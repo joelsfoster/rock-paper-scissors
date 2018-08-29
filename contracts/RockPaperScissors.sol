@@ -259,7 +259,7 @@ contract RockPaperScissors is Ownable {
       revert();
     }
     game.status = Status.Finished;
-    emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.Finished, 0x0);
+    emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, Status.Finished, game.winner);
   }
 
 }
