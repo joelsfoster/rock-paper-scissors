@@ -39,7 +39,7 @@ contract RockPaperScissors is Ownable {
 
   // Event emitter Helper function
   function emitGameUpdates(uint gameId) internal {
-    game = games[gameId];
+    Game memory game = games[gameId];
     emit GameUpdates(game.gameId, game.wager, game.creator, game.challenger, game.status, game.winner);
   }
 
@@ -265,7 +265,7 @@ contract RockPaperScissors is Ownable {
       revert();
     }
     game.status = Status.Finished;
-    emitGameUpdates(game.gameId);    
+    emitGameUpdates(game.gameId);
   }
 
 }
