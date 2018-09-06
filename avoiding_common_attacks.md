@@ -40,7 +40,7 @@ I don't use any code that depends on the contract's balance, as I know that Ethe
 
 I sanitize user-input data by using function modifiers that validate the data before passing it to my functions.
 
-###
+### Function exposure security
 
 I audited all my public-facing functions and interfaces and ensured all other functions are marked as "internal".
 
