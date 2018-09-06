@@ -25,6 +25,8 @@ Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truf
 6. Take the mnemonic you copied from Ganache in step 2 and open MetaMask in your browser, copying the mnemonic there. In MetaMask, set your blockchain network to Localhost 8545, which will refresh the page.
 7. Conduct game actions in the DApp and sign them using MetaMask. If you want to join a game you created, you have to use a different address--this is as simple as adding a new account in MetaMask (no need to use a different private key). Try creating a game, joining using a different account, revealing your moves with both accounts, and verifying that your winning account got paid the prize.
 
+![alt text](https://github.com/joelsfoster/rock-paper-scissors/blob/master/public/images/screenshot.png)
+
 
 #### Troubleshooting compilation / migration / MetaMask
 - If you're getting build problems, try deleting the ./build folder and running `truffle compile` and `truffle migrate` again.
