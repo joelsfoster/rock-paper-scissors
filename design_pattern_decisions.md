@@ -5,11 +5,11 @@
 - **State Machine**: I used an enum to indicate what state a game was in, to determine what functions can be called on it.
 - **"Fail Early and Fail Loud"**: I used require() statements wherever possible, as the first execution in the function logic.
 - **Restricting Access**: I was very selective with what state variables are publicly readable, and what functions are publicly callable, and put checks in place to ensure the appropriate addresses (the players) are the only ones who can call functions on the games they're playing.
-- **Owner-only Functions**: I opted out of creating a selfdestruct function because I want users to trust that I won't run away with their in-escrow wagers. I didn't even want to implement a circuitBreaker function but it's a requirement for this assignment.
+- **Owner-only Functions**: I opted out of creating a selfdestruct function because I want users to trust that I won't run away with their in-escrow wagers. I didn't even want to implement a circuitBreaker function but it's a requirement for this assignment. Yes, currently the app can be paused while games are ongoing, which could force those games to expire without users being able to take action.
 - **Contract Simplicity and Readability**: I opted into writing a single contract, as opposed to separating the modifiers and function calls into separate contracts, because IMO the contract is still manageable to read. If it got any longer I'd certainly split it up into multiple inherited contracts for easier auditability.
 - **Circuit Breaker**: The function owner can pause all action on the contract in case of an emergency. There is a situation here where games will still expire, thus possibly causing someone to lose an ongoing game.
-- **Push vs Pull Payments**: I opted out of implementing this design pattern to save on storage and to provide immediate gratification in the user experience. For safety's sake, this would be absolutely be up for consideration.
-- **Events**: I opted to not write any events as I don't have a need for them at this moment. I coded the front end to dynamically call getter functions for updates after state change actions, as opposed to automatically reacting to emitted events. If this is disadvantageous for any reason, please let me know your thoughts!
+- **"Balance withdrawal" pattern**: To protect users from DoS attacks from malicious contracts, I've implemented this pattern to separate ether transfer logic from game logic.
+- **Events**: I use event listeners on the front end as a way to trigger UI value/state refreshing.
 
 
 ### Additional Notes
