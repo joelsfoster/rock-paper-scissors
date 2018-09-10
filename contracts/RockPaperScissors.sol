@@ -184,7 +184,7 @@ contract RockPaperScissors is Ownable {
   }
 
   // Players can create a game by submitting their wager, using a password to encrypt their move
-  function createGame(string _move, string _password, uint _wager) public payable checkIfPaused() validateMove(_move) validatePassword(_password) {
+  function createGame(string _move, string _password, uint _wager) public checkIfPaused() validateMove(_move) validatePassword(_password) {
     require(balances[msg.sender] >= _wager);
     decreaseBalance(msg.sender, _wager);
     gameIdCounter = gameIdCounter.add(1); // The first game's ID will be 1
@@ -217,7 +217,7 @@ contract RockPaperScissors is Ownable {
   }
 
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
-  function joinGame(string _move, string _password, uint _gameId) public payable checkIfPaused() validateMove(_move) validatePassword(_password) {
+  function joinGame(string _move, string _password, uint _gameId) public checkIfPaused() validateMove(_move) validatePassword(_password) {
     Game storage game = games[_gameId]; // Too bad Solidity doesn't let you define local variables in function arguments like JavaScript
     require(
       game.creator != msg.sender && // You can't challange yourself

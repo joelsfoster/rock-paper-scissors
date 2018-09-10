@@ -43,8 +43,9 @@ Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truf
 
 ### Roadmap candidates (future work, unprioritized)
 
+- Implement the "Balance Withdrawal" design pattern (increasing safety but at the cost of UX)
+- Add more test assert conditions for passing
 - Change "Move" into an enum
-- Consider implementing the "Balance Withdrawal" design pattern (increasing safety but at the cost of UX)
 - Implement Ethereum Alarm Clock to trigger game expirations
 - Extend ongoing game expiration times if contract is paused/unpaused
 - Optimize gas costs
