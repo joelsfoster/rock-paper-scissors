@@ -43,14 +43,14 @@ Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truf
 
 ### Roadmap candidates (future work, unprioritized)
 
-- Implement the "Balance Withdrawal" design pattern (increasing safety but at the cost of UX)
+- Fix GameUpdates reader to wipe outdated game entries from both game arrays
 - Add more test assert conditions for passing
 - Change "Move" into an enum
+- Refactor App.js to modularize handlers and utils
 - Implement Ethereum Alarm Clock to trigger game expirations
 - Extend ongoing game expiration times if contract is paused/unpaused
 - Optimize gas costs
 - Implement Drizzle for state management (instead of me doing it manually)
-- Refactor App.js to modularize functions
 - Add event confirmation and error messages to the front end for nicer UX
 - Push front end files to IPFS
 - Deploy the DApp to the Rinkby testnet (and add a deployed_addresses.txt file containing the address)

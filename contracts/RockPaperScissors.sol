@@ -15,12 +15,12 @@ contract RockPaperScissors is Ownable {
   // Declare global variables
   bool public contractPaused = false;
   uint public gameIdCounter = 0;
-  uint public minimumWager; // In wei, recommended: 5000000000000000 wei = .005 ether
+  uint public minimumWager;
   uint public gameBlockTimeLimit;
   bytes32 internal emptyStringHash = keccak256('');
 
-  // Store user balances
-  mapping (address => uint) internal balances;
+  // Store user balances, public because the front end needs to update without the user signing a transaction
+  mapping (address => uint) public balances;
 
   // The Game object
   struct Game {
@@ -72,7 +72,8 @@ contract RockPaperScissors is Ownable {
 
   // When the contract is deployed, set the owner and the global variables and seed the moveWinsAgainst mapping
   constructor(uint _minimumWager) public {
-    minimumWager = _minimumWager; // In wei (1 eth = 1000000000000000000 wei)
+    if (_minimumWager) { minimumWager = _minimumWager; } // In wei (1 eth = 1000000000000000000 wei)
+    else { minimumWager = 5000000000000000; } // Default
     gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
     seedMoveWinsAgainst();
   }
@@ -155,11 +156,6 @@ contract RockPaperScissors is Ownable {
   /*
   <-- Functions -->
   */
-
-  // Players can request their balances
-  function getBalance() public returns (uint) {
-    return balances[msg.sender];
-  }
 
   // Helper function to increase balance
   function increaseBalance(address _account, uint _amount) internal {
