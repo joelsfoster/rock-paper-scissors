@@ -10,7 +10,7 @@ contract('RockPaperScissors', async (accounts) => {
 
     /// @dev Before each test, instantiate new contract with constructor variable (to avoid running out of gas)
     beforeEach(async () => {
-      rockPaperScissors = await RockPaperScissors.new(5000000000000000); // minimumWager (in wei)
+      rockPaperScissors = await RockPaperScissors.new();
     });
 
 
@@ -33,10 +33,11 @@ contract('RockPaperScissors', async (accounts) => {
       const _move = "Rock";
       const _password = "password";
       const _wager = 5000000000000000;
-      const _msgvalue = 5000000000000000;
+      const _funds = 5000000000000000;
 
-      // Create game and check that the gameIdCounter has incremented
-      await rockPaperScissors.createGame(_move, _password, _wager, {from: alice, value: _msgvalue});
+      // Deposit funds, then create game and check that the gameIdCounter has incremented
+      await rockPaperScissors.depositFunds({from: alice, value: _funds});
+      await rockPaperScissors.createGame(_move, _password, _wager, {from: alice});
       const gameIdCounter = await rockPaperScissors.gameIdCounter();
       const expected = 1;
       assert.equal(gameIdCounter, expected);
@@ -47,9 +48,10 @@ contract('RockPaperScissors', async (accounts) => {
       const _move = "Rock";
       const _password = "password";
       const _wager = 5000000000000000;
-      const _msgvalue = 5000000000000000;
+      const _funds = 5000000000000000;
 
-      await rockPaperScissors.createGame(_move, _password, _wager, {from: alice, value: _msgvalue});
+      await rockPaperScissors.depositFunds({from: alice, value: _funds});
+      await rockPaperScissors.createGame(_move, _password, _wager, {from: alice});
       const gameIdCounter = await rockPaperScissors.gameIdCounter();
       const gameId = gameIdCounter;
 
@@ -65,9 +67,10 @@ contract('RockPaperScissors', async (accounts) => {
       const _move = "Rock";
       const _password = "password";
       const _wager = 5000000000000000;
-      const _msgvalue = 5000000000000000;
+      const _funds = 5000000000000000;
 
-      await rockPaperScissors.createGame(_move, _password, _wager, {from: alice, value: _msgvalue});
+      await rockPaperScissors.depositFunds({from: alice, value: _funds});
+      await rockPaperScissors.createGame(_move, _password, _wager, {from: alice});
       const gameIdCounter = await rockPaperScissors.gameIdCounter.call();
       const _gameId = gameIdCounter;
 
@@ -86,15 +89,17 @@ contract('RockPaperScissors', async (accounts) => {
       const _creatorPassword = "password";
       const _challengerPassword = "123";
       const _wager = 5000000000000000;
-      const _creatorMsgvalue = 5000000000000000;
-      const _challengerMsgvalue = 5000000000000000;
+      const _creatorFunds = 5000000000000000;
+      const _challengerFunds = 5000000000000000;
 
-      await rockPaperScissors.createGame(_creatorMove, _creatorPassword, _wager, {from: alice, value: _creatorMsgvalue});
+      await rockPaperScissors.depositFunds({from: alice, value: _creatorFunds});
+      await rockPaperScissors.createGame(_creatorMove, _creatorPassword, _wager, {from: alice});
       const gameIdCounter = await rockPaperScissors.gameIdCounter.call();
       const _gameId = gameIdCounter;
 
       // After a game is created, join it using a different address, and verify by retrieving the challengers address
-      await rockPaperScissors.joinGame(_challengerMove, _challengerPassword, _gameId, {from: bob, value: _challengerMsgvalue});
+      await rockPaperScissors.depositFunds({from: bob, value: _challengerFunds});
+      await rockPaperScissors.joinGame(_challengerMove, _challengerPassword, _gameId, {from: bob});
       const game = await rockPaperScissors.games(_gameId);
       const challenger = game[4]; // The 5th item returned in the array
       const expected = bob;
@@ -108,15 +113,17 @@ contract('RockPaperScissors', async (accounts) => {
       const _creatorPassword = "password";
       const _challengerPassword = "123";
       const _wager = 5000000000000000;
-      const _creatorMsgvalue = 5000000000000000;
-      const _challengerMsgvalue = 5000000000000000;
+      const _creatorFunds = 5000000000000000;
+      const _challengerFunds = 5000000000000000;
 
-      await rockPaperScissors.createGame(_creatorMove, _creatorPassword, _wager, {from: alice, value: _creatorMsgvalue});
+      await rockPaperScissors.depositFunds({from: alice, value: _creatorFunds});
+      await rockPaperScissors.createGame(_creatorMove, _creatorPassword, _wager, {from: alice});
       const gameIdCounter = await rockPaperScissors.gameIdCounter.call();
       const _gameId = gameIdCounter;
 
       // After the game is created and joined, the challenger reveals his move, then verify by retrieving it
-      await rockPaperScissors.joinGame(_challengerMove, _challengerPassword, _gameId, {from: bob, value: _challengerMsgvalue});
+      await rockPaperScissors.depositFunds({from: bob, value: _challengerFunds});
+      await rockPaperScissors.joinGame(_challengerMove, _challengerPassword, _gameId, {from: bob});
       await rockPaperScissors.revealMove(_challengerMove, _challengerPassword, _gameId, {from: bob});
       const game = await rockPaperScissors.games(_gameId);
       const challengerMove = game[9]; // The 10th item returned in the array

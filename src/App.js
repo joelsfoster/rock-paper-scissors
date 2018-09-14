@@ -10,7 +10,7 @@ import './css/pure-min.css';
 import './App.css';
 import Intro from './components/Intro';
 import Rules from './components/Rules';
-import Info from './components/Info';
+import Balance from './components/Balance';
 import NewGame from './components/NewGame';
 import CancelGame from './components/CancelGame';
 import JoinGame from './components/JoinGame';
@@ -36,9 +36,11 @@ class App extends Component {
       contractAddress: null,
       minimumWager: null,
       account: null,
-      balance: null,
-      wager: null, // In ETH
-      wagerInWei: null,
+      accountBalance: null,
+      gameBalance: null,
+      deposit: null,
+      withdraw: null,
+      wager: null,
       newGameMove: "Rock",
       newGamePassword: null,
       cancelGameId: null,
@@ -65,7 +67,7 @@ class App extends Component {
 
 
   /*
-  <-- On page load -->
+  <-- On page load / app initialization -->
   */
 
   // Check for a web3 instance and network provider, see './utils/getWeb3' for info
@@ -91,66 +93,41 @@ class App extends Component {
       rockPaperScissors.deployed().then((instance) => {
         this.setState({ contract: instance, contractAddress: instance.address, account: accounts[0] });
         this.getMinimumWager();
+      })
 
-        // Then set an event listener for open games to join (where user is not the creator)
-      }).then((result) => {
-        this.state.contract.GameUpdates({status: 0}, {fromBlock: 0, toBlock: 'latest'})
+      // Then set an event listener to track game updates
+      .then( (response) => {
+        this.state.contract.GameUpdates({}, {fromBlock: 0, toBlock: 'latest'})
         .watch((error, result) => {
           const data = result.args;
           const game = {
             gameId: data.gameId.c[0],
-            wager: this.state.web3.fromWei(data.wager, 'ether').toNumber(), // BigNumber wei -> BigNumber eth -> Number eth
+            wager: this.convertToEther(data.wager).toNumber(),
             creator: data.creator,
             challenger: data.challenger,
             status: data.status.c[0],
             winner: data.winner
           }
 
-          if (game.creator !== this.state.account) {
-            this.updateGameArray(game, this.state.availableGames, "availableGames");
-          }
+          this.updateGamesData(game);
         });
+      })
 
-        // Then set event listeners to grab game history
-        /// @dev Unfortunately, logical operators (i.e. $OR) are not supported, so sadly there are two listeners
-      }).then((error, result) => {
+      // Watch for differences or changes between account and/or in-game balances, and refresh state if so
+      .then( (response) => {
+        setInterval( () => {
+          this.state.web3.eth.getBalance(this.state.account, (error, result) => {
+            const currentBalance = this.convertToEther(result).toNumber();
 
-        // Where the user created a game
-        this.state.contract.GameUpdates({creator: this.state.account}, {fromBlock: 0, toBlock: 'latest'})
-        .watch((error, result) => {
-          const data = result.args;
-          const game = {
-            gameId: data.gameId.c[0],
-            wager: this.state.web3.fromWei(data.wager, 'ether').toNumber(), // BigNumber wei -> BigNumber eth -> Number eth
-            creator: data.creator,
-            challenger: data.challenger,
-            status: data.status.c[0],
-            winner: data.winner
-          }
-          this.updateGameArray(game, this.state.myGames, "myGames");
-        });
+            if (currentBalance !== this.state.accountBalance) { // On the first pass, this will be [number] !== null
+              this.updateBalances();
+            }
+          })
+        }, 100);
+      })
 
-        // Where the user joined a game
-        this.state.contract.GameUpdates({challenger: this.state.account}, {fromBlock: 0, toBlock: 'latest'})
-        .watch((error, result) => {
-          const data = result.args;
-          const game = {
-            gameId: data.gameId.c[0],
-            wager: this.state.web3.fromWei(data.wager, 'ether').toNumber(), // BigNumber wei -> BigNumber eth -> Number eth
-            creator: data.creator,
-            challenger: data.challenger,
-            status: data.status.c[0],
-            winner: data.winner
-          }
-          this.updateGameArray(game, this.state.myGames, "myGames");
-        });
-
-        // Then get the balance for this account
-      }).then((error, result) => {
-        this.getBalance();
-
-        // Lastly, monitor if the account has changed, and refresh state if so
-      }).then((error, result) => {
+      // Lastly, monitor if the account has changed, and refresh state if so
+      .then( (response) => {
         setInterval( () => {
           const currentAccount = this.state.web3.eth.accounts[0];
           if (currentAccount !== this.state.account) {
@@ -164,42 +141,73 @@ class App extends Component {
 
 
   /*
-  <-- Utils, state refresher functions, and UI loaders -->
+  <-- Utils and state refresher functions -->
   */
 
-  // Replaces stale event data, such as when a game is created then cancelled in the same session
-  /// @params game is the game object
-  /// @params i.e. array = this.state.availableGames
-  /// @params i.e. stateObject = "availableGames"
-  updateGameArray(game, stateArray, stateObject) {
+  convertToEther(numberInWei) {
+    if (numberInWei) { return this.state.web3.fromWei(numberInWei, 'ether'); }
+    else { return null }
+  }
+
+  convertToWei(numberInEth) {
+    if (numberInEth) { return this.state.web3.toWei(numberInEth, 'ether'); }
+    else { return null }
+  }
+
+  updateGamesData(game) {
+    // If a challenger joined a game, delist it from availableGames
+    if (game.status !== 0) {
+      this.deleteGameRecord(game, this.state.availableGames, "availableGames");
+    }
+    // If it's an available game, add it to availableGames
+    if (game.creator !== this.state.account && game.status == 0) {
+      this.deleteGameRecord(game, this.state.availableGames, "availableGames"); // Delete old record
+      this.addGameRecord(game, this.state.availableGames, "availableGames"); // Add updated record
+    }
+    // If it's one of myGames, update it
+    if (game.creator == this.state.account || game.challenger == this.state.account) {
+      this.deleteGameRecord(game, this.state.myGames, "myGames"); // Delete old record
+      this.addGameRecord(game, this.state.myGames, "myGames");// Add updated record
+    }
+  }
+
+  // Helper function for updateGamesData
+  addGameRecord(game, array, arrayName) {
+    let updatedArray = array;
+    updatedArray.push(game);
+    this.setState( { [arrayName]: updatedArray } );
+  }
+
+  // Helper function for updateGamesData
+  deleteGameRecord(game, array, arrayName) {
     let index = 0;
-    stateArray.map(currentGame => { // Loop through the array and delete stale data
-      if (currentGame.gameId == game.gameId) {
-        stateArray.splice(index, 1); // Delete from array
+    let prunedArray = [];
+
+    array.map(currentGame => {
+      if (currentGame.gameId !== game.gameId) { // Drop out any old records of games with this ID
+        prunedArray.push(currentGame);
       }
       return index++;
     });
 
-    // Add the new game to the cleaned array and set the state to the cleaned, updated array
-    const newArray = stateArray.concat(game);
-    const updatedStateObject = { [stateObject]: newArray };
-    this.setState(updatedStateObject);
+    this.setState( { [arrayName]: prunedArray } );
   }
 
   getMinimumWager() {
-    this.state.contract.minimumWager.call(this.state.account)
-    .then((result) => {
-      const minimumWagerInWei = result.toNumber();
-      const minimumWagerInEth = this.state.web3.fromWei(minimumWagerInWei, 'ether');
-      this.setState({ minimumWager: minimumWagerInEth });
+    this.state.contract.minimumWager.call()
+    .then( (response) => {
+      this.setState({ minimumWager: this.convertToEther(response).toNumber() });
     });
   }
 
-  getBalance() {
-    this.state.web3.eth.getBalance(this.state.account, (error, result) => {
-      const balanceInWei = result.toNumber();
-      const balanceInEth = this.state.web3.fromWei(balanceInWei, 'ether');
-      this.setState({ balance: balanceInEth });
+  updateBalances() {
+    this.state.web3.eth.getBalance(this.state.account, (error, result) => { // Account balance
+      this.setState({ accountBalance: this.convertToEther(result).toNumber() });
+    });
+
+    this.state.contract.balances.call(this.state.account) // In-game balance
+    .then( (response) => {
+      this.setState({ gameBalance: this.convertToEther(response).toNumber() });
     });
   }
 
@@ -213,8 +221,14 @@ class App extends Component {
 
   handleWagerChange(event) {
     this.setState({wager: event.target.value});
-    const wagerInWei = this.state.web3.toWei(event.target.value);
-    this.setState({wagerInWei: wagerInWei});
+  }
+
+  handleDepositChange(event) {
+    this.setState({deposit: event.target.value});
+  }
+
+  handleWithdrawChange(event) {
+    this.setState({withdraw: event.target.value});
   }
 
   handleCancelGameIdChange(event) {
@@ -245,95 +259,65 @@ class App extends Component {
     this.setState({revealMoveGameId: event.target.value});
   }
 
-  renderAvailableGames() {
-    return this.state.availableGames.map(game => {
-      return (
-        <div key={game.gameId}>
-          <p>Game ID: {game.gameId} | Wager: {game.wager} ETH | Creator: {game.creator}</p>
-        </div>
-      )
-    });
-  }
-
-  renderMyGames() {
-    return this.state.myGames.map(game => {
-      return (
-        <div key={game.gameId}>
-          <p>
-            Game ID: {game.gameId}<br/>
-            Wager: {game.wager} ETH<br/>
-            Status: {this.gameStatusReference[game.status]}<br/>
-            Creator: {game.creator}<br/>
-            Challenger: {game.challenger == "0x0000000000000000000000000000000000000000" ? "" : game.challenger}<br/>
-            Winner: {this.displayWinner(game)}
-          </p>
-        </div>
-      )
-    });
-  }
-
-  displayWinner(game) {
-    if (game.winner == "0x0000000000000000000000000000000000000000" && game.status == 5) { return "Tie" } // game.status = Finished
-    else if (game.winner == "0x0000000000000000000000000000000000000000") { return "" }
-    else { return game.winner }
-  }
-
 
   /*
   <-- Game action functions -->
   */
 
+  handleDeposit(event) {
+    event.preventDefault();
+    this.state.contract.depositFunds({from: this.state.account, value: this.convertToWei(this.state.deposit)})
+    .then( (response) => {
+      // Function must have a callback
+    });
+  }
+
+  // For some God-knows-why reason, the front end won't allow withdrawing the FULL amount. So I did this. Leaves some "dust" in the contract.
+  handleWithdraw(event) {
+    event.preventDefault();
+    const amountToWithdraw = this.convertToWei(this.state.withdraw) - 100; // <- Yep! Frustrating...
+    this.state.contract.withdrawFunds(amountToWithdraw, {from: this.state.account})
+    .then( (response) => {
+      // Function must have a callback
+    });
+  }
+
   handleNewGame(event) {
     event.preventDefault();
-    this.state.contract.createGame(this.state.newGameMove, this.state.newGamePassword, this.state.wagerInWei, {from: this.state.account, value: this.state.wagerInWei})
-    .then((error, result) => {
-      console.log("Game created");
-      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
+    this.state.contract.createGame(this.state.newGameMove, this.state.newGamePassword, this.convertToWei(this.state.wager), {from: this.state.account})
+    .then( (response) => {
+      // Function must have a callback
     });
   }
 
   handleCancelGame(event) {
     event.preventDefault();
     this.state.contract.cancelGame(this.state.cancelGameId, {from: this.state.account})
-    .then((error, result) => {
-      console.log("Game cancelled");
-      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
+    .then( (response) => {
+      // Function must have a callback
     });
   }
 
   handleJoinGame(event) {
     event.preventDefault();
-    let wager;
-    this.state.availableGames.map(game => { // Find the game's wager by looking in the availableGames array
-      if (game.gameId == this.state.joinGameId) {
-        wager = game.wager;
-        return null;
-      }
-      return null;
-    });
-
-    const wagerInWei = this.state.web3.toWei(wager, 'ether');
-    this.state.contract.joinGame(this.state.joinGameMove, this.state.joinGamePassword, this.state.joinGameId, {from: this.state.account, value: wagerInWei})
-    .then((error, result) => {
-      console.log("Game joined");
-      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
+    this.state.contract.joinGame(this.state.joinGameMove, this.state.joinGamePassword, this.state.joinGameId, {from: this.state.account})
+    .then( (response) => {
+      // Function must have a callback
     });
   }
 
   handleRevealMove(event) {
     event.preventDefault();
     this.state.contract.revealMove(this.state.revealMove, this.state.revealMovePassword, this.state.revealMoveGameId, {from: this.state.account})
-    .then((error, result) => {
-      console.log("Move revealed");
-      // Can implement front end message "Transaction successful! Waiting for the block to be mined..."
+    .then( (response) => {
+      // Function must have a callback
     });
   }
 
 
   /*
-  <-- Render the app -->
+  <-- Render the UI -->
   */
-
 
   render() {
     return (
@@ -341,16 +325,22 @@ class App extends Component {
         <nav className="navbar pure-menu pure-menu-horizontal">
             <a href="#" className="pure-menu-heading pure-menu-link">Rock Paper Scissors</a>
         </nav>
-
         <main className="container">
           <div className="pure-g">
             <div className="pure-u-1-1">
-              <Intro />
+              <Intro contractAddress={this.state.contractAddress} />
               <Rules />
-              <Info
-                balance={this.state.balance}
+              <Balance
                 account={this.state.account}
-                contractAddress={this.state.contractAddress}
+                accountBalance={this.state.accountBalance}
+                gameBalance={this.state.gameBalance}
+                deposit={this.state.deposit}
+                withdraw={this.state.withdraw}
+                handleDepositChange={this.handleDepositChange.bind(this)}
+                handleDeposit={this.handleDeposit.bind(this)}
+                handleWithdrawChange={this.handleWithdrawChange.bind(this)}
+                handleWithdraw={this.handleWithdraw.bind(this)}
+
               />
               <NewGame
                 minimumWager={this.state.minimumWager}
@@ -362,7 +352,9 @@ class App extends Component {
                 handleNewGame={this.handleNewGame.bind(this)}
               />
               <DividerLine />
-              <AvailableGames renderAvailableGames={this.renderAvailableGames()}/>
+              <AvailableGames
+                availableGames={this.state.availableGames}
+              />
               <JoinGame
                 joinGamePassword={this.state.joinGamePassword}
                 joinGameId={this.state.joinGameId}
@@ -372,7 +364,10 @@ class App extends Component {
                 handleJoinGame={this.handleJoinGame.bind(this)}
               />
               <DividerLine />
-              <MyGames renderMyGames={this.renderMyGames()}/>
+              <MyGames
+                myGames={this.state.myGames}
+                gameStatusReference={this.gameStatusReference}
+              />
               <RevealMove
                 revealMovePassword={this.state.revealMovePassword}
                 revealMoveGameId={this.state.revealMoveGameId}

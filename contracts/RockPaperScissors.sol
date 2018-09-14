@@ -15,9 +15,12 @@ contract RockPaperScissors is Ownable {
   // Declare global variables
   bool public contractPaused = false;
   uint public gameIdCounter = 0;
-  uint public minimumWager; // In wei, recommended: 5000000000000000 wei = .005 ether
+  uint public minimumWager;
   uint public gameBlockTimeLimit;
   bytes32 internal emptyStringHash = keccak256('');
+
+  // Store user balances, public because the front end needs to update without the user signing a transaction
+  mapping (address => uint) public balances;
 
   // The Game object
   struct Game {
@@ -68,8 +71,8 @@ contract RockPaperScissors is Ownable {
   }
 
   // When the contract is deployed, set the owner and the global variables and seed the moveWinsAgainst mapping
-  constructor(uint _minimumWager) public {
-    minimumWager = _minimumWager; // In wei (1 eth = 1000000000000000000 wei)
+  constructor() public {
+    minimumWager = 5000000000000000; // .005 ETH
     gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
     seedMoveWinsAgainst();
   }
@@ -91,13 +94,6 @@ contract RockPaperScissors is Ownable {
     _;
   }
 
-  // Reusable code to return any extra funds sent to the contract
-  modifier returnExtraPayment(uint _wager) {
-    _; // This function modifier code executes after its parent function resolves
-    uint amountToRefund = msg.value.sub(_wager);
-    msg.sender.transfer(amountToRefund);
-  }
-
   // Reusable code to check that a valid _move (string) was submitted
   /// @dev We can't compare strings in solidity, so instead we compare hashes of strings to see if they match
   modifier validateMove(string _move) {
@@ -112,15 +108,6 @@ contract RockPaperScissors is Ownable {
   // Reusable code to check that a valid _password was submitted
   modifier validatePassword(string _password) {
     require(keccak256(_password) != emptyStringHash);
-    _;
-  }
-
-  // Reusable code to check that a valid _wager was submitted and that enough funds were sent to pay it
-  modifier validateWager(uint _wager) {
-    require(
-      msg.value >= _wager &&
-      _wager >= minimumWager
-    );
     _;
   }
 
@@ -139,21 +126,21 @@ contract RockPaperScissors is Ownable {
       if (
         keccak256(game.creatorMove) == emptyStringHash &&
         keccak256(game.challengerMove) != emptyStringHash
-        ) { game.challenger.transfer(totalPrizePool); }
+        ) { increaseBalance(game.challenger, totalPrizePool); }
 
       // If only the creator revealed, pay them
       else if (
         keccak256(game.creatorMove) != emptyStringHash &&
         keccak256(game.challengerMove) == emptyStringHash
-        ) { game.creator.transfer(totalPrizePool); }
+        ) { increaseBalance(game.creator, totalPrizePool); }
 
       // If neither of the players are revealed and the game is expired, refund both players
       else if (
         keccak256(game.creatorMove) == emptyStringHash &&
         keccak256(game.challengerMove) == emptyStringHash
         ) {
-        game.creator.transfer(game.wager);
-        game.challenger.transfer(game.wager);
+        increaseBalance(game.creator, game.wager);
+        increaseBalance(game.challenger, game.wager);
       }
 
       revert(); // Ends the parent function without continuing (uses the same opcode as require())
@@ -169,8 +156,32 @@ contract RockPaperScissors is Ownable {
   <-- Functions -->
   */
 
+  // Helper function to increase balance
+  function increaseBalance(address _account, uint _amount) internal {
+    balances[_account] = balances[_account].add(_amount);
+  }
+
+  // Helper function to decrease balance
+  function decreaseBalance(address _account, uint _amount) internal {
+    balances[_account] = balances[_account].sub(_amount);
+  }
+
+  // Players can deposit funds into their balance, fallback function executes this
+  function depositFunds() public payable {
+    increaseBalance(msg.sender, msg.value);
+  }
+
+  // Players can withdraw the specified funds
+  function withdrawFunds(uint _amount) public {
+    require(balances[msg.sender] >= _amount);
+    decreaseBalance(msg.sender, _amount);
+    msg.sender.transfer(_amount);
+  }
+
   // Players can create a game by submitting their wager, using a password to encrypt their move
-  function createGame(string _move, string _password, uint _wager) public payable checkIfPaused() validateMove(_move) validatePassword(_password) validateWager(_wager) returnExtraPayment(_wager) {
+  function createGame(string _move, string _password, uint _wager) public checkIfPaused() validateMove(_move) validatePassword(_password) {
+    require(balances[msg.sender] >= _wager);
+    decreaseBalance(msg.sender, _wager);
     gameIdCounter = gameIdCounter.add(1); // The first game's ID will be 1
     games[gameIdCounter] = Game({ // Create a new game
       gameId: gameIdCounter,
@@ -196,17 +207,19 @@ contract RockPaperScissors is Ownable {
       game.status == Status.Open
     );
     game.status = Status.Cancelled;
-    game.creator.transfer(game.wager); /// @dev Called after state changes to prevent recursive call attacks
     emitGameUpdates(game.gameId);
+    increaseBalance(game.creator, game.wager); /// @dev Called after state changes to prevent recursive call attacks
   }
 
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
-  function joinGame(string _move, string _password, uint _gameId) public payable checkIfPaused() validateMove(_move) validatePassword(_password) validateWager(games[_gameId].wager) returnExtraPayment(games[_gameId].wager) {
+  function joinGame(string _move, string _password, uint _gameId) public checkIfPaused() validateMove(_move) validatePassword(_password) {
     Game storage game = games[_gameId]; // Too bad Solidity doesn't let you define local variables in function arguments like JavaScript
     require(
       game.creator != msg.sender && // You can't challange yourself
-      game.status == Status.Open
+      game.status == Status.Open &&
+      balances[msg.sender] >= game.wager
     );
+    decreaseBalance(msg.sender, game.wager);
     game.status = Status.AwaitingReveals;
     game.challenger = msg.sender;
     game.gameExpirationBlock = block.number.add(gameBlockTimeLimit);
@@ -252,20 +265,24 @@ contract RockPaperScissors is Ownable {
     );
 
     /// @dev i.e. moveWinsAgainst['Rock'] returns 'Paper'
-    if (keccak256(game.creatorMove) == keccak256(game.challengerMove)) { // If both players tie, refund both players
-      game.creator.transfer(game.wager);
-      game.challenger.transfer(game.wager);
+    if (keccak256(game.creatorMove) == keccak256(game.challengerMove)) { // If players tie, refund both players
+      increaseBalance(game.creator, game.wager);
+      increaseBalance(game.challenger, game.wager);
     } else if (keccak256(moveWinsAgainst[game.creatorMove]) == keccak256(game.challengerMove)) { // The challenger wins
       game.winner = game.challenger;
-      game.winner.transfer(totalPrizePool);
+      increaseBalance(game.winner, totalPrizePool);
     } else if (keccak256(moveWinsAgainst[game.challengerMove]) == keccak256(game.creatorMove)) { // The creator wins
       game.winner = game.creator;
-      game.winner.transfer(totalPrizePool);
-    } else { // Refund the poor stranger his/her remaining gas
+      increaseBalance(game.winner, totalPrizePool);
+    } else { // Fallback, refund any remaining gas
       revert();
     }
     game.status = Status.Finished;
     emitGameUpdates(game.gameId);
+  }
+
+  function () public payable {
+    depositFunds();
   }
 
 }

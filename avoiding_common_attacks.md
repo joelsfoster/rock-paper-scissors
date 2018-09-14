@@ -44,6 +44,10 @@ I sanitize user-input data by using function modifiers that validate the data be
 
 I audited all my public-facing functions and interfaces and ensured all other functions are marked as "internal".
 
+### Denial of service
+
+Due to other contracts being able to play the game, if this app were to try to send them money and their fallback function was not payable, it would reject this app's payment attempt and short-circuit the function it is in. For this reason, I've implemented the "Balance Withdrawal" design pattern to separate ether transfer logic from game logic.
+
 ### Other
 
 There are additional attack types that I not mention here because they're not highly relevant to this project, but I did spend a massive amount of time studying them all to be aware and knowledgable about them for future DApps!

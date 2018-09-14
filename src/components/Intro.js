@@ -10,6 +10,10 @@ export default class Intro extends Component {
           See the code <a href='https://github.com/joelsfoster/rock-paper-scissors'>here</a>.
         </p>
         <h4><p><i>To play, first log into your MetaMask browser extension.</i></p></h4>
+        <p>
+          This game's contract is deployed at: {this.props.contractAddress}
+          <br/><i>(Ensure this address matches your MetaMask's "send transaction" confirmations!)</i>
+        </p>
       </div>
     )
   }
