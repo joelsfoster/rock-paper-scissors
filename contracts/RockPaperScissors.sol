@@ -71,9 +71,8 @@ contract RockPaperScissors is Ownable {
   }
 
   // When the contract is deployed, set the owner and the global variables and seed the moveWinsAgainst mapping
-  constructor(uint _minimumWager) public {
-    if (_minimumWager) { minimumWager = _minimumWager; } // In wei (1 eth = 1000000000000000000 wei)
-    else { minimumWager = 5000000000000000; } // Default
+  constructor() public {
+    minimumWager = 5000000000000000; // .005 ETH
     gameBlockTimeLimit = 5760; // Roughly 24 hours @ a 15 second blocktime
     seedMoveWinsAgainst();
   }

@@ -43,7 +43,6 @@ Ensure you have [Truffle](https://truffleframework.com/), [Ganache](https://truf
 
 ### Roadmap candidates (future work, unprioritized)
 
-- Fix GameUpdates reader to wipe outdated game entries from both game arrays
 - Add more test assert conditions for passing
 - Change "Move" into an enum
 - Refactor App.js to modularize handlers and utils

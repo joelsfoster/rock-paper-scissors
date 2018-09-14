@@ -10,7 +10,7 @@ contract('RockPaperScissors', async (accounts) => {
 
     /// @dev Before each test, instantiate new contract with constructor variable (to avoid running out of gas)
     beforeEach(async () => {
-      rockPaperScissors = await RockPaperScissors.new(5000000000000000); // minimumWager (in wei)
+      rockPaperScissors = await RockPaperScissors.new();
     });
 
 

@@ -95,9 +95,9 @@ class App extends Component {
         this.getMinimumWager();
       })
 
-      // Then set an event listener for open games to join (where user is not the creator)
+      // Then set an event listener to track game updates
       .then( (response) => {
-        this.state.contract.GameUpdates({status: 0}, {fromBlock: 0, toBlock: 'latest'})
+        this.state.contract.GameUpdates({}, {fromBlock: 0, toBlock: 'latest'})
         .watch((error, result) => {
           const data = result.args;
           const game = {
@@ -109,17 +109,8 @@ class App extends Component {
             winner: data.winner
           }
 
-          if (game.creator !== this.state.account) {
-            this.updateGameArray(game, this.state.availableGames, "availableGames");
-          }
+          this.updateGamesData(game);
         });
-      })
-
-      // Then set event listeners to grab game history
-      /// @dev Unfortunately, logical operators (i.e. $OR) are not supported, so sadly there are two listeners
-      .then( (response) => {
-        this.startEventListener("creator"); // Where the user created a game
-        this.startEventListener("challenger"); // Where the user joined a game
       })
 
       // Watch for differences or changes between account and/or in-game balances, and refresh state if so
@@ -129,7 +120,7 @@ class App extends Component {
             const currentBalance = this.convertToEther(result).toNumber();
 
             if (currentBalance !== this.state.accountBalance) { // On the first pass, this will be [number] !== null
-              this.getBalances();
+              this.updateBalances();
             }
           })
         }, 100);
@@ -163,43 +154,43 @@ class App extends Component {
     else { return null }
   }
 
-  // Helper function to start an event listener tracking games where the user created or joined a game
-  /// @params type will be either "creator" or "challenger"
-  startEventListener(type) {
-    const queryParam = { [type]: this.state.account }; // e.g. { creator: this.state.account }
-
-    this.state.contract.GameUpdates(queryParam, {fromBlock: 0, toBlock: 'latest'})
-    .watch((error, result) => {
-      const data = result.args;
-      const game = {
-        gameId: data.gameId.c[0],
-        wager: this.convertToEther(data.wager).toNumber(),
-        creator: data.creator,
-        challenger: data.challenger,
-        status: data.status.c[0],
-        winner: data.winner
-      }
-      this.updateGameArray(game, this.state.myGames, "myGames");
-    });
+  updateGamesData(game) {
+    // If a challenger joined a game, delist it from availableGames
+    if (game.status !== 0) {
+      this.deleteGameRecord(game, this.state.availableGames, "availableGames");
+    }
+    // If it's an available game, add it to availableGames
+    if (game.creator !== this.state.account && game.status == 0) {
+      this.deleteGameRecord(game, this.state.availableGames, "availableGames"); // Delete old record
+      this.addGameRecord(game, this.state.availableGames, "availableGames"); // Add updated record
+    }
+    // If it's one of myGames, update it
+    if (game.creator == this.state.account || game.challenger == this.state.account) {
+      this.deleteGameRecord(game, this.state.myGames, "myGames"); // Delete old record
+      this.addGameRecord(game, this.state.myGames, "myGames");// Add updated record
+    }
   }
 
-  // Replaces stale event data, such as when a game is created then cancelled in the same session
-  /// @params game is the game object
-  /// @params i.e. array = this.state.availableGames
-  /// @params i.e. stateObject = "availableGames"
-  updateGameArray(game, stateArray, stateObject) {
+  // Helper function for updateGamesData
+  addGameRecord(game, array, arrayName) {
+    let updatedArray = array;
+    updatedArray.push(game);
+    this.setState( { [arrayName]: updatedArray } );
+  }
+
+  // Helper function for updateGamesData
+  deleteGameRecord(game, array, arrayName) {
     let index = 0;
-    stateArray.map(currentGame => { // Loop through the array and delete stale data
-      if (currentGame.gameId == game.gameId) {
-        stateArray.splice(index, 1); // Delete from array
+    let prunedArray = [];
+
+    array.map(currentGame => {
+      if (currentGame.gameId !== game.gameId) { // Drop out any old records of games with this ID
+        prunedArray.push(currentGame);
       }
       return index++;
     });
 
-    // Add the new game to the cleaned array and set the state to the cleaned, updated array
-    const newArray = stateArray.concat(game);
-    const updatedStateObject = { [stateObject]: newArray };
-    this.setState(updatedStateObject);
+    this.setState( { [arrayName]: prunedArray } );
   }
 
   getMinimumWager() {
@@ -209,7 +200,7 @@ class App extends Component {
     });
   }
 
-  getBalances() {
+  updateBalances() {
     this.state.web3.eth.getBalance(this.state.account, (error, result) => { // Account balance
       this.setState({ accountBalance: this.convertToEther(result).toNumber() });
     });
