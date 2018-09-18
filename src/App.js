@@ -284,7 +284,12 @@ class App extends Component {
 
   handleNewGame(event) {
     event.preventDefault();
-    this.state.contract.createGame(this.state.newGameMove, this.state.newGamePassword, this.convertToWei(this.state.wager), {from: this.state.account})
+    let encryptedMove = this.state.web3.sha3( // #1 MAKE SURE THIS ENCRYPTION WORKS!!!
+      this.state.newGameMove,
+      this.state.account,
+      this.state.web3.sha3(this.state.newGamePassword) // #1 HERE TOO!!!
+    ); // #2 FIGURE OUT WHY FRONT END ENCRYPTION ISNT WORKING WITH BACK END MATCHING VALIDATION
+    this.state.contract.createGame(encryptedMove, this.convertToWei(this.state.wager), {from: this.state.account})
     .then( (response) => {
       // Function must have a callback
     });
@@ -300,15 +305,26 @@ class App extends Component {
 
   handleJoinGame(event) {
     event.preventDefault();
-    this.state.contract.joinGame(this.state.joinGameMove, this.state.joinGamePassword, this.state.joinGameId, {from: this.state.account})
+    let encryptedMove = this.state.web3.sha3( // #1 HERE TOO!!!
+      this.state.joinGameMove,
+      this.state.account,
+      this.state.web3.sha3(this.state.joinGamePassword) // #1 HERE TOO!!!
+    );
+    console.log(this.state.joinGameMove);
+    console.log(this.state.account);
+    console.log(this.state.web3.sha3(this.state.joinGamePassword));
+    console.log(encryptedMove); // 0x2f3b358b892f3e0baae98bebb3c61b03f5c9eb68ba717978f8984a0f722d2aed
+    this.state.contract.joinGame(encryptedMove, this.state.joinGameId, {from: this.state.account})
     .then( (response) => {
       // Function must have a callback
+      this.state.contract.games.call(1).then((res) => { console.log(res) });
     });
   }
 
   handleRevealMove(event) {
     event.preventDefault();
-    this.state.contract.revealMove(this.state.revealMove, this.state.revealMovePassword, this.state.revealMoveGameId, {from: this.state.account})
+    let hashedPassword = this.state.web3.sha3(this.state.revealMovePassword); // #1 HERE TOO!!!
+    this.state.contract.revealMove(this.state.revealMove, hashedPassword, this.state.revealMoveGameId, {from: this.state.account})
     .then( (response) => {
       // Function must have a callback
     });

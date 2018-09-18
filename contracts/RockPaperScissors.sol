@@ -17,7 +17,7 @@ contract RockPaperScissors is Ownable {
   uint public gameIdCounter = 0;
   uint public minimumWager;
   uint public gameBlockTimeLimit;
-  bytes32 internal emptyStringHash = keccak256('');
+  bytes32 internal emptyStringHash = keccak256(''); // Needed for string comparisons
 
   // Store user balances, public because the front end needs to update without the user signing a transaction
   mapping (address => uint) public balances;
@@ -106,8 +106,8 @@ contract RockPaperScissors is Ownable {
   }
 
   // Reusable code to check that a valid _password was submitted
-  modifier validatePassword(string _password) {
-    require(keccak256(_password) != emptyStringHash);
+  modifier validatePasswordHash(bytes32 _passwordHash) {
+    require(_passwordHash != emptyStringHash);
     _;
   }
 
@@ -179,7 +179,7 @@ contract RockPaperScissors is Ownable {
   }
 
   // Players can create a game by submitting their wager, using a password to encrypt their move
-  function createGame(string _move, string _password, uint _wager) public checkIfPaused() validateMove(_move) validatePassword(_password) {
+  function createGame(bytes32 _encryptedMove, uint _wager) public checkIfPaused() {
     require(balances[msg.sender] >= _wager);
     decreaseBalance(msg.sender, _wager);
     gameIdCounter = gameIdCounter.add(1); // The first game's ID will be 1
@@ -190,7 +190,7 @@ contract RockPaperScissors is Ownable {
       creator: msg.sender,
       challenger: 0x0,
       winner: 0x0,
-      creatorEncryptedMove: keccak256(_move, msg.sender, _password), // Encrypted using the user's password
+      creatorEncryptedMove: _encryptedMove, // Encrypted using the user's address and hashed password
       challengerEncryptedMove: emptyStringHash,
       creatorMove: '',
       challengerMove: '',
@@ -212,7 +212,7 @@ contract RockPaperScissors is Ownable {
   }
 
   // Opponent can join a open game by submitting his/her entry fee and their encrypted submission
-  function joinGame(string _move, string _password, uint _gameId) public checkIfPaused() validateMove(_move) validatePassword(_password) {
+  function joinGame(bytes32 _encryptedMove, uint _gameId) public checkIfPaused() {
     Game storage game = games[_gameId]; // Too bad Solidity doesn't let you define local variables in function arguments like JavaScript
     require(
       game.creator != msg.sender && // You can't challange yourself
@@ -223,12 +223,12 @@ contract RockPaperScissors is Ownable {
     game.status = Status.AwaitingReveals;
     game.challenger = msg.sender;
     game.gameExpirationBlock = block.number.add(gameBlockTimeLimit);
-    game.challengerEncryptedMove = keccak256(_move, msg.sender, _password); // Encrypted using the user's password
+    game.challengerEncryptedMove = _encryptedMove; // Encrypted using the user's address and hashed password
     emitGameUpdates(game.gameId);
   }
 
   // Allow players to reveal their moves by providing their password and repeating their move
-  function revealMove(string _move, string _password, uint _gameId) public checkIfPaused() checkGameExpiration(_gameId) validateMove(_move) validatePassword(_password) {
+  function revealMove(string _move, bytes32 _passwordHash, uint _gameId) public checkIfPaused() checkGameExpiration(_gameId) validateMove(_move) validatePasswordHash(_passwordHash) {
     Game storage game = games[_gameId];
     require(
       game.status == Status.AwaitingReveals ||
@@ -237,12 +237,12 @@ contract RockPaperScissors is Ownable {
     );
 
     if (msg.sender == game.creator) { // If the creator reveals
-      require(game.creatorEncryptedMove == keccak256(_move, msg.sender, _password));
+      require(game.creatorEncryptedMove == keccak256(_move, msg.sender, _passwordHash));
       game.creatorMove = _move;
       game.status = Status.AwaitingChallengerReveal;
       emitGameUpdates(game.gameId);
     } else if (msg.sender == game.challenger) { // If the challenger reveals
-      require(game.challengerEncryptedMove == keccak256(_move, msg.sender, _password));
+      require(game.challengerEncryptedMove == keccak256(_move, msg.sender, _passwordHash));
       game.challengerMove = _move;
       game.status = Status.AwaitingCreatorReveal;
       emitGameUpdates(game.gameId);
@@ -250,7 +250,8 @@ contract RockPaperScissors is Ownable {
       revert();
     }
 
-    if (keccak256(game.creatorMove) != emptyStringHash && keccak256(game.challengerMove) != emptyStringHash) { // If both players' moves are revealed, determine the winner
+    // If both players' moves are revealed, determine the winner
+    if (keccak256(game.creatorMove) != emptyStringHash && keccak256(game.challengerMove) != emptyStringHash) {
       determineWinner(_gameId);
     }
   }
