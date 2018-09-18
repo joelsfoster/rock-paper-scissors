@@ -6,7 +6,8 @@ export default class Balance extends Component {
 
     /* Rounding to make the user ignore dust in their account, because for some
      * God-knows-why reason if the user tries to withdraw their full balance,
-     * the front end won't permit the withdrawal. I have no idea why its doing that and its very frustrating.
+     * the front end won't permit the withdrawal. I have no idea why its doing
+     * that and it's very frustrating.
      */
     const lowBalanceNumber = 0.0001;
 

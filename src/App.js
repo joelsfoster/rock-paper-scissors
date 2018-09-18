@@ -3,6 +3,12 @@
 import React, { Component } from 'react';
 import RockPaperScissorsContract from '../build/contracts/RockPaperScissors.json';
 import getWeb3 from './utils/getWeb3';
+import web3Utils from 'web3-utils'; /* Needed because if I try to upgrade to
+                                     * web3@1.0 I get tons of cryptic errors.
+                                     * Needed for the soliditySha3() method because
+                                     * older versions of web3 use the sha3() method,
+                                     * which doesn't do what Solidity does in keccak256()
+                                     */
 
 import './css/oswald.css';
 import './css/open-sans.css';
@@ -275,7 +281,7 @@ class App extends Component {
   // For some God-knows-why reason, the front end won't allow withdrawing the FULL amount. So I did this. Leaves some "dust" in the contract.
   handleWithdraw(event) {
     event.preventDefault();
-    const amountToWithdraw = this.convertToWei(this.state.withdraw) - 100; // <- Yep! Frustrating...
+    const amountToWithdraw = this.convertToWei(this.state.withdraw) - 5000; // <- Yep! Frustrating...
     this.state.contract.withdrawFunds(amountToWithdraw, {from: this.state.account})
     .then( (response) => {
       // Function must have a callback
@@ -284,11 +290,11 @@ class App extends Component {
 
   handleNewGame(event) {
     event.preventDefault();
-    let encryptedMove = this.state.web3.sha3( // #1 MAKE SURE THIS ENCRYPTION WORKS!!!
+    let encryptedMove = web3Utils.soliditySha3(
       this.state.newGameMove,
       this.state.account,
-      this.state.web3.sha3(this.state.newGamePassword) // #1 HERE TOO!!!
-    ); // #2 FIGURE OUT WHY FRONT END ENCRYPTION ISNT WORKING WITH BACK END MATCHING VALIDATION
+      web3Utils.soliditySha3(this.state.newGamePassword)
+    );
     this.state.contract.createGame(encryptedMove, this.convertToWei(this.state.wager), {from: this.state.account})
     .then( (response) => {
       // Function must have a callback
@@ -305,25 +311,20 @@ class App extends Component {
 
   handleJoinGame(event) {
     event.preventDefault();
-    let encryptedMove = this.state.web3.sha3( // #1 HERE TOO!!!
+    let encryptedMove = web3Utils.soliditySha3(
       this.state.joinGameMove,
       this.state.account,
-      this.state.web3.sha3(this.state.joinGamePassword) // #1 HERE TOO!!!
+      web3Utils.soliditySha3(this.state.joinGamePassword)
     );
-    console.log(this.state.joinGameMove);
-    console.log(this.state.account);
-    console.log(this.state.web3.sha3(this.state.joinGamePassword));
-    console.log(encryptedMove); // 0x2f3b358b892f3e0baae98bebb3c61b03f5c9eb68ba717978f8984a0f722d2aed
     this.state.contract.joinGame(encryptedMove, this.state.joinGameId, {from: this.state.account})
     .then( (response) => {
       // Function must have a callback
-      this.state.contract.games.call(1).then((res) => { console.log(res) });
     });
   }
 
   handleRevealMove(event) {
     event.preventDefault();
-    let hashedPassword = this.state.web3.sha3(this.state.revealMovePassword); // #1 HERE TOO!!!
+    let hashedPassword = web3Utils.soliditySha3(this.state.revealMovePassword);
     this.state.contract.revealMove(this.state.revealMove, hashedPassword, this.state.revealMoveGameId, {from: this.state.account})
     .then( (response) => {
       // Function must have a callback
